@@ -1,0 +1,246 @@
+\documentclass[10pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfpages}
+\usepackage{xcolor}
+\usepackage{xypic}
+\usepackage{upgreek}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{mathpartir}
+
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{amsfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+\usepackage{pgfpages}
+
+\mode<presentation>
+% \Usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+% These slides also contain speaker notes. You can print just the slides,
+% just the notes, or both, depending on the setting below. Comment out the want
+% you want.
+
+\setbeameroption{hide notes} % Only slides
+%\setbeameroption{show only notes} % Only notes
+%\setbeameroption{show notes on second screen=right} % Both
+
+% Give a slight yellow tint to the notes page
+\setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% MACROS
+
+%% Typing judgements & rules
+\newcommand{\emptyctx}{{\cdot}} % empty context
+\newcommand{\typingrule}[2]{\infer{#1}{#2}}
+\newcommand{\of}{{:}} % typing of a variable in a context
+\newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}}
+\newcommand{\lam}[1]{\lambda (#1).\,}
+
+%%%%%%% GROUP: named inference rules
+
+% the style for rule names
+\newcommand{\rulename}[1]{\textnormal{\textsc{#1}}}
+
+% use \rref{...} to refer to a rule in text
+\newcommand{\rref}[1]{\hyperlink{rule:#1}{\rulename{#1}}}
+
+% the color of rule names
+\definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+% named inference rule
+\newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Programming language techniques\\ for proof assistants}
+\author{Andrej Bauer\\University of Ljubljana}
+\date{}
+\begin{document}
+
+\begin{frame}
+\hbox{}\vfil
+
+\titlepage
+
+\vfil
+
+\begin{center}
+\footnotesize
+International School on Logical Frameworks and Proof Systems Interoperability \\
+Université Paris--Saclay, September 8--12, 2025
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Overview}
+
+  \begin{itemize}
+  \item Lecture 1: The anatomy of a proof checker
+    \begin{itemize}\footnotesize
+    \item A toy type theory
+    \item Components of a proof checker
+    \item Monadic-style implementation
+    \end{itemize}
+  \item \pause
+    Lecture 2: Meta-variables and unification
+    \begin{itemize}\footnotesize
+    \item What are meta-variables?
+    \item What is unification?
+    \item The wrong implementation
+    \end{itemize}
+  \item \pause
+    Lecture 3: Algebraic effects and handlers
+    \begin{itemize}\footnotesize
+    \item Algebraic theories
+    \item Algebraic effects and handlers
+    \item Effects and handlers in OCaml
+    \end{itemize}
+  \item \pause
+    Lecture 4: Effects in a proof assistant
+    \begin{itemize}\footnotesize
+    \item Meta-variables as promises
+    \item Proof assistant as a scheduler
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 1
+
+    \bigskip
+
+    \Large
+    The anatomy of a proof checker
+  \end{center}
+\end{frame}
+
+% Faux type theory
+% - rules
+% - computation and extensionality rules (η-rules)
+
+\begin{frame}
+  \frametitle{Faux Type Theory}
+
+  \begin{mathpar}
+    \inferenceRule{Ty-Type}
+    { }
+    {\types \Type : \Type}
+
+    \inferenceRule{Ty-Pi}
+    {x \of A \types B(x) : \Type}
+    {\types \prd{x \of A} B(x) : \Type}
+
+    \\
+
+    \inferenceRule{Tm-App}
+    {\types t : \prd{x \of A} B(x)
+      \\
+      \types u : A
+    }{
+      \types t\,u : B(u)
+    }
+
+    \inferenceRule{Tm-Lambda}
+    {x \of A \types t(x) : B(x)}
+    {\types \lam{x \of A} t(x) : \prd{x \of A} B(x)}
+
+    \\
+
+    \inferenceRule{Tm-Var}
+    {(x \of A) \in \Gamma}
+    {\Gamma \types x : A}
+
+  \end{mathpar}
+
+  \note{Discuss presuppositions}
+  \note{Discuss absence of $\Gamma$}
+
+\end{frame}
+
+
+% Components of a proof checker
+% - syntax: parser, variable binding & printing
+% - type-checker
+% - top level
+
+% Implementation
+% - parsing with Menhir
+% - abstract syntax: Bindlib
+% - computing in context
+% - monadic-style type-checker
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 2
+
+    \bigskip
+
+    \Large
+    Meta-variables and unification
+  \end{center}
+\end{frame}
+
+% What are meta-variables?
+% Where are they used?
+% Implementation monadic-style
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 3
+
+    \bigskip
+
+    \Large
+    Algebraic effects and handlers
+  \end{center}
+\end{frame}
+
+% Algebraic effects and handler - blitz intro
+% - algebraic theory
+% - effects as algebraic theories
+% - handlers
+% - OCaml implementation
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 4
+
+    \bigskip
+
+    \Large
+    Effects in proof assistants
+  \end{center}
+\end{frame}
+
+% Meta-variables as promises
+% Handlers: 
+
+\end{document}
