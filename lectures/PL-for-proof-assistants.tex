@@ -42,12 +42,14 @@
 %% Typing judgements & rules
 \newcommand{\emptyctx}{{\cdot}} % empty context
 \newcommand{\typingrule}[2]{\infer{#1}{#2}}
-\newcommand{\of}{{:}} % typing of a variable in a context
+\newcommand{\of}{\,{:}\,} % typing of a variable in a context
 \newcommand{\types}{\vdash} % the turnstile
 
 \newcommand{\Type}{\mathsf{Type}}
 \newcommand{\prd}[1]{\Uppi_{(#1)}}
 \newcommand{\lam}[1]{\lambda (#1).\,}
+
+\newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
 
 %%%%%%% GROUP: named inference rules
 
@@ -138,36 +140,124 @@ Université Paris--Saclay, September 8--12, 2025
 % - computation and extensionality rules (η-rules)
 
 \begin{frame}
-  \frametitle{Faux Type Theory}
+  \frametitle{Faux Type Theory -- judgement forms}
+
+
+  \begin{itemize}
+  \item
+    Judgement forms:
+    %
+    {\small
+    \begin{tabbing}
+      $\Gamma \vdash t : A$ \qquad\qquad \= ``In context $\Gamma$ term $t$ has type $A$.'' \\
+      $\Gamma \vdash t \equiv_A u$ \> ``In context $\Gamma$ terms $t$ and $u$ of type $A$ are equal.''
+    \end{tabbing}}
+    % 
+  \item \pause
+    In the name of simplicity, we shall abuse ``$\Type : \Type$''.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Faux Type Theory -- terms and types}
 
   \begin{mathpar}
     \inferenceRule{Ty-Type}
     { }
-    {\types \Type : \Type}
+    {\Gamma \types \Type : \Type}
 
     \inferenceRule{Ty-Pi}
-    {x \of A \types B(x) : \Type}
-    {\types \prd{x \of A} B(x) : \Type}
+    {\Gamma, x \of A \types B(x) : \Type}
+    {\Gamma \types \prd{x \of A} B(x) : \Type}
 
     \\
 
     \inferenceRule{Tm-App}
-    {\types t : \prd{x \of A} B(x)
+    {\Gamma \types t : \prd{x \of A} B(x)
       \\
-      \types u : A
+      \Gamma \types u : A
     }{
-      \types t\,u : B(u)
+      \Gamma \types t\,u : B(u)
     }
 
     \inferenceRule{Tm-Lambda}
-    {x \of A \types t(x) : B(x)}
-    {\types \lam{x \of A} t(x) : \prd{x \of A} B(x)}
+    {\Gamma, x \of A \types t(x) : B(x)}
+    {\Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)}
 
     \\
 
     \inferenceRule{Tm-Var}
     {(x \of A) \in \Gamma}
     {\Gamma \types x : A}
+
+
+    \inferenceRule{Tm-Let}
+    {\Gamma \types t : A
+      \\
+      \Gamma, x \,{:}{=}\, t \of A \types u(x) : B(x)
+    }{
+      \Gamma \types (\letin{x}{t}{u}) : B(t)
+    }
+  \end{mathpar}
+
+  \note{Discuss presuppositions}
+  \note{Discuss absence of $\Gamma$}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Faux Type Theory -- equality}
+
+  \begin{mathpar}
+
+    \inferenceRule{Eq-Refl}
+    {\Gamma \types t : A}
+    {\Gamma \types t \equiv_A t}
+
+    \inferenceRule{Eq-Sym}
+    {\Gamma \types u \equiv_A t}
+    {\Gamma \types t \equiv_A t}
+
+    \inferenceRule{Eq-Tran}
+    {\Gamma \types s \equiv_A t \\
+     \Gamma \types t \equiv_A u}
+    {\Gamma \types s \equiv_A t}
+
+    \\
+
+    \inferenceRule{Eq-Conv}
+    {\Gamma \types t : A \\ \types A \equiv_\Type B}
+    {\Gamma \types t : B}
+
+    \\
+
+    \inferenceRule{Eq-Beta}
+    {\Gamma, x \of A \types t(x) : B(x)
+      \\
+      \Gamma \types u : A
+    }{
+      \Gamma \types (\lam{x \of A} t(x))\,u \equiv_{B(u)} t(u)
+    }
+
+    \inferenceRule{Eq-Ext}
+    {\Gamma, x \of A \types t\,x \equiv_{B(x)} u\,x : B(x)}
+    {\Gamma \types t \equiv_{\prd{x \of A} B(x)} u}
+
+
+    \inferenceRule{Eq-Var}
+    {(x \,{:}{=}\, t \of A) \in \Gamma}
+    {\Gamma \types x \equiv_A t}
+
+    \inferenceRule{Eq-Let}
+    {
+      \Gamma \types t : A
+      \\
+      \Gamma, x \,{:}{=}\, t \of A \types u(x) : B(x)
+    }{
+      \Gamma \types (\letin{x}{t}{u(x)}) \equiv_{B(t)} u(t)
+    }
 
   \end{mathpar}
 
@@ -181,6 +271,18 @@ Université Paris--Saclay, September 8--12, 2025
 % - syntax: parser, variable binding & printing
 % - type-checker
 % - top level
+
+\begin{frame}
+  \frametitle{The components of a proof assistant}
+
+  \begin{itemize}
+  \item Parsing of concrete syntax
+  \item Variable binding \& substitution
+  \item Type-checking
+  \item Top level
+  \end{itemize}
+\end{frame}
+
 
 % Implementation
 % - parsing with Menhir
