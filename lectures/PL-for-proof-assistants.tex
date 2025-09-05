@@ -12,7 +12,7 @@
 
 \usepackage{palatino}
 % \usepackage{xypic}
-\usepackage{amsfonts}
+\usepackage{txfonts}
 %\usepackage[llbracket,rrbracket]{stmaryrd}
 \usepackage{pgfpages}
 
@@ -29,9 +29,9 @@
 % just the notes, or both, depending on the setting below. Comment out the want
 % you want.
 
-\setbeameroption{hide notes} % Only slides
+%\setbeameroption{hide notes} % Only slides
 %\setbeameroption{show only notes} % Only notes
-%\setbeameroption{show notes on second screen=right} % Both
+\setbeameroption{show notes on second screen=right} % Both
 
 % Give a slight yellow tint to the notes page
 \setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
@@ -43,13 +43,21 @@
 \newcommand{\emptyctx}{{\cdot}} % empty context
 \newcommand{\typingrule}[2]{\infer{#1}{#2}}
 \newcommand{\of}{\,{:}\,} % typing of a variable in a context
+\newcommand{\ofLet}[3]{#1 \,{:}{=}\, #2 \,{:}\ #3} % typing of a variable in a context
 \newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\checkTy}{\leftsquigarrow}
+\newcommand{\inferTy}{\rightsquigarrow}
 
 \newcommand{\Type}{\mathsf{Type}}
 \newcommand{\prd}[1]{\Uppi_{(#1)}}
 \newcommand{\lam}[1]{\lambda (#1).\,}
 
 \newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
+
+\newcommand{\nfequiv}{\equiv^\mathsf{nf}}
+\newcommand{\neutequiv}{\equiv^0}
+\newcommand{\norm}{\leadsto}
 
 %%%%%%% GROUP: named inference rules
 
@@ -93,31 +101,32 @@ Université Paris--Saclay, September 8--12, 2025
   \frametitle{Overview}
 
   \begin{itemize}
-  \item Lecture 1: The anatomy of a proof checker
+  \item Lecture 1: From declarative to algorithmic type theory
     \begin{itemize}\footnotesize
-    \item A toy type theory
-    \item Components of a proof checker
-    \item Monadic-style implementation
+    \item A declarative presentation of type theory
+    \item Bidirectional type checking
+    \item Algorithmic equality checking
     \end{itemize}
   \item \pause
-    Lecture 2: Meta-variables and unification
+    Lecture 2: A monadic type checker
     \begin{itemize}\footnotesize
-    \item What are meta-variables?
-    \item What is unification?
-    \item The wrong implementation
+    \item Parsing, bound variables and substitution
+    \item A monad for typing contexts
+    \item A monadic proof checker
     \end{itemize}
   \item \pause
-    Lecture 3: Algebraic effects and handlers
+    Lecture 3: Holes and unification
     \begin{itemize}\footnotesize
-    \item Algebraic theories
-    \item Algebraic effects and handlers
-    \item Effects and handlers in OCaml
+    \item Postponed computations as holes
+    \item Unification
+    \item A holey type checker
     \end{itemize}
   \item \pause
-    Lecture 4: Effects in a proof assistant
+    Lecture 4: Variables as computational effects
     \begin{itemize}\footnotesize
-    \item Meta-variables as promises
-    \item Proof assistant as a scheduler
+    \item Algebraic operations and handlers
+    \item Holes as computational effects
+    \item A handler-based type checker
     \end{itemize}
   \end{itemize}
 \end{frame}
@@ -131,8 +140,25 @@ Université Paris--Saclay, September 8--12, 2025
     \bigskip
 
     \Large
-    The anatomy of a proof checker
+    From declarative to algorithmic type theory
   \end{center}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{What is a type theory?}
+
+  \begin{itemize}
+  \item A collection of inference rules
+  \item A closure system on a set of judgements
+  \item Quotient inductive inductive type (QIIT)
+  \item Second-order generalized algebraic theory (SOGAT)
+  \item A small representable map category
+  \end{itemize}
+
+  \note[item]{There are many views of what a type theory is, ranging syntactic to semantic ones. Each view enriches our understanding of type theory and has its uses.}
+  \note[item]{For implementation purposes, a good starting point is a \emph{syntactic presentation} of type theory.}
+
 \end{frame}
 
 % Faux type theory
@@ -140,22 +166,37 @@ Université Paris--Saclay, September 8--12, 2025
 % - computation and extensionality rules (η-rules)
 
 \begin{frame}
-  \frametitle{Faux Type Theory -- judgement forms}
+  \frametitle{Faux Type Theory -- syntax \& judgement forms}
 
+  Expressions:
+  %
+  \begin{align*}
+    t, u, A, B \mathrel{{:}{:}{=}}&\quad
+     x                       &&\text{variable} \\
+    &{\mid}\quad \Type           &&\text{universe} \\
+    &{\mid}\quad \prd{x \of A} B &&\text{product} \\
+    &{\mid}\quad t\,u            &&\text{application} \\
+    &{\mid}\quad \lam{x \of A} t &&\text{function} \\
+    &{\mid}\quad \letin{x}{t}{u} &&\text{local definition}
+  \end{align*}
+  \pause
+  %
+  Judgement forms:
+  %
+  \begin{tabbing}
+      $\Gamma \vdash t : A$ \qquad\qquad \= ``In context $\Gamma$, term $t$ has type $A$.'' \\
+      $\Gamma \vdash t \equiv_A u$ \> ``In context $\Gamma$, terms $t$ and $u$ of type $A$ are equal.''
+  \end{tabbing}
+  %
+  \pause
+  %
+  A context $\Gamma$ maps variables to their types and definitions, if any:
+  %
+  \begin{tabbing}
+    $x : A$ \qquad\qquad \= ``$x$ has type $A$''\\
+    $\ofLet{x}{t}{A}$ \> ``$x$ equals $t$ and has type $A$''
+  \end{tabbing}
 
-  \begin{itemize}
-  \item
-    Judgement forms:
-    %
-    {\small
-    \begin{tabbing}
-      $\Gamma \vdash t : A$ \qquad\qquad \= ``In context $\Gamma$ term $t$ has type $A$.'' \\
-      $\Gamma \vdash t \equiv_A u$ \> ``In context $\Gamma$ terms $t$ and $u$ of type $A$ are equal.''
-    \end{tabbing}}
-    % 
-  \item \pause
-    In the name of simplicity, we shall abuse ``$\Type : \Type$''.
-  \end{itemize}
 \end{frame}
 
 
@@ -163,14 +204,24 @@ Université Paris--Saclay, September 8--12, 2025
   \frametitle{Faux Type Theory -- terms and types}
 
   \begin{mathpar}
+    \inferenceRule{Tm-Var}
+    {(x \of A) \in \Gamma}
+    {\Gamma \types x : A}
+
+    \pause
+    \\
+
     \inferenceRule{Ty-Type}
-    { }
+    {\hbox{}}
     {\Gamma \types \Type : \Type}
 
+
     \inferenceRule{Ty-Pi}
-    {\Gamma, x \of A \types B(x) : \Type}
+    {\Gamma \types A : \Type \\
+     \Gamma, x \of A \types B(x) : \Type}
     {\Gamma \types \prd{x \of A} B(x) : \Type}
 
+    \pause
     \\
 
     \inferenceRule{Tm-App}
@@ -182,20 +233,19 @@ Université Paris--Saclay, September 8--12, 2025
     }
 
     \inferenceRule{Tm-Lambda}
-    {\Gamma, x \of A \types t(x) : B(x)}
-    {\Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)}
+    {\Gamma \types A : \Type \\
+      \Gamma, x \of A \types t(x) : B(x)
+    }{
+      \Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)
+    }
 
+    \pause
     \\
-
-    \inferenceRule{Tm-Var}
-    {(x \of A) \in \Gamma}
-    {\Gamma \types x : A}
-
 
     \inferenceRule{Tm-Let}
     {\Gamma \types t : A
       \\
-      \Gamma, x \,{:}{=}\, t \of A \types u(x) : B(x)
+      \Gamma, \ofLet{x}{t}{A} \types u(x) : B(x)
     }{
       \Gamma \types (\letin{x}{t}{u}) : B(t)
     }
@@ -225,17 +275,25 @@ Université Paris--Saclay, September 8--12, 2025
      \Gamma \types t \equiv_A u}
     {\Gamma \types s \equiv_A t}
 
+    \pause
     \\
 
     \inferenceRule{Eq-Conv}
     {\Gamma \types t : A \\ \types A \equiv_\Type B}
     {\Gamma \types t : B}
 
+    \pause
+
+    \inferenceRule{Eq-Var}
+    {(x \,{:}{=}\, t \of A) \in \Gamma}
+    {\Gamma \types x \equiv_A t}
+
+    \pause
     \\
 
     \inferenceRule{Eq-Beta}
-    {\Gamma, x \of A \types t(x) : B(x)
-      \\
+    {\Gamma \types A : \Type \\
+      \Gamma, x \of A \types t(x) : B(x) \\
       \Gamma \types u : A
     }{
       \Gamma \types (\lam{x \of A} t(x))\,u \equiv_{B(u)} t(u)
@@ -245,10 +303,7 @@ Université Paris--Saclay, September 8--12, 2025
     {\Gamma, x \of A \types t\,x \equiv_{B(x)} u\,x : B(x)}
     {\Gamma \types t \equiv_{\prd{x \of A} B(x)} u}
 
-
-    \inferenceRule{Eq-Var}
-    {(x \,{:}{=}\, t \of A) \in \Gamma}
-    {\Gamma \types x \equiv_A t}
+    \pause
 
     \inferenceRule{Eq-Let}
     {
@@ -267,20 +322,277 @@ Université Paris--Saclay, September 8--12, 2025
 \end{frame}
 
 
-% Components of a proof checker
-% - syntax: parser, variable binding & printing
-% - type-checker
-% - top level
+\begin{frame}
+  \frametitle{Bidirectional type checking}
+
+  Replace $\Gamma \types t : A$ with two judgements forms:
+  %
+  \begin{tabbing}
+      $\Gamma \vdash t \inferTy A$ \qquad\qquad \= ``In context $\Gamma$, infer that term $t$ has type $A$.'' \\
+      $\Gamma \vdash t \checkTy A$ \> ``In context $\Gamma$, check that term  $t$ has type $A$.''
+  \end{tabbing}
+  %
+  \pause
+  Desiderata:
+  %
+  \begin{itemize}
+  \item \emph{Soundness} of bidirectional type-checking:
+    %
+    \begin{itemize}
+    \item if $\Gamma \types t \inferTy A$ then $\Gamma \types t : A$, and
+    \item if $\Gamma \types t \checkTy A$ then $\Gamma \types t : A$.
+    \end{itemize}
+  \item \emph{Completeness} of bidirectional type-checking:
+    %
+    \begin{itemize}
+    \item if $\Gamma \types t : A$ then $\Gamma \types t \checkTy A$.
+    \end{itemize}
+  \item The rules should be \emph{deterministic} and \emph{syntax-driven}:
+    %
+    \begin{itemize}
+    \item at most one candidate rule applies in any situation, and
+    \item the candidate rule is apparent from the syntax of~$t$.
+    \end{itemize}
+  \end{itemize}
+
+
+  \note[item]{We split the judgement $\Gamma \types t : A$ into two judgements.}
+  \note[item]{$\Gamma \types t \inferTy A$ \emph{infers} (computes, synthesizes) the type~$A$ of~$t$.}
+  \note[item]{$\Gamma \types t \checkTy A$ \emph{checks} that $t$ has the given type~$A$.}
+  \note[item]{The notation is suggestive:
+    %
+    \begin{itemize}
+    \item[] $t \inferTy A$ indicates that $t$ \emph{produces} the type~$A$
+    \item[] $t \checkTy A$ indicates that $t$ \emph{consumes} the type~$A$
+    \end{itemize}}
+  \note[item]{As it turns out, some terms ``want to be'' inferring and others checking.}
+  \note[item]{We requires soundness and completeness to ensure that both versions of the theory derive the same judgements.}
+  \note[item]{The bidirectional rules should be deterministic so that they can serve as the basis of an efficient algorithm (that does not have to perform excessive amounts of backtracking).}
+  \note[item]{The bidirectional rules should be syntax-driven so that we can implement them simply by recursion on the syntax of expressions.}
+
+\end{frame}
+
 
 \begin{frame}
-  \frametitle{The components of a proof assistant}
+  \frametitle{Bidirectional Faux type theory -- rules I}
 
+  \begin{mathpar}
+
+   \inferenceRule{Infer-Var}
+   {(x \of A) \in \Gamma}
+   {\Gamma \types x \inferTy A}
+
+   \inferenceRule{Infer-Type}
+   {\hbox{}}
+   {\Gamma \types \Type \inferTy \Type}
+
+   \inferenceRule{Infer-Pi}
+   {\Gamma, x \of A \types B(x) : \Type}
+   {\Gamma \types \prd{x \of A} B(x) \inferTy \Type}
+
+   \inferenceRule{Infer-App}
+   {
+     \Gamma \types t \inferTy \prd{x \of A} B(x) \\
+     \Gamma \types u \checkTy A
+   }{
+     \Gamma \types t\,u \inferTy B(u)
+   }
+
+   \inferenceRule{Infer-Lambda}
+   {
+     \Gamma \types A \checkTy \Type \\
+     \Gamma, x \of A \types t(x) \inferTy B(x)
+   }{
+     \Gamma \types \lam{x \of A} t(x) \inferTy \prd{x \of A} B(x)
+   }
+
+   \pause
+
+   \inferenceRule{Infer-Ascribe}
+   {
+     \Gamma \types A \checkTy \Type \\
+     \Gamma \types t \checkTy A
+   }{
+     \Gamma \types (t : A) \inferTy A
+  }
+  \end{mathpar}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Bidirectional Faux type theory -- rules II}
+  Let-binding is direction-agnostic:
+  %
+  \begin{gather*}
+   \inferenceRule{Infer-Let}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma, \ofLet{x}{t}{A} \types u(x) \inferTy B(x)
+   }{
+     \Gamma \types (\letin{x}{t}{u}) \inferTy B(t)
+   }
+   \\[1ex]
+   \inferenceRule{Check-Let}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma, \ofLet{x}{t}{A} \types u(x) \checkTy B
+   }{
+     \Gamma \types (\letin{x}{t}{u}) \checkTy B
+   }
+  \end{gather*}
+  %
+  \pause
+  There is a rule for switching from checking to inference:
+  %
+  \begin{equation*}
+   \inferenceRule{Infer-Check}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma \types A \equiv_\Type B
+   }{
+     \Gamma \types t \checkTy B
+  }
+  \end{equation*}
+  %
+  Note: this is the \emph{only} rule in which equality applies.
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Algorithmic equality checking}
+
+  Algorithmic checking of $\Gamma \types t \equiv_A u$:
+  %
   \begin{itemize}
-  \item Parsing of concrete syntax
-  \item Variable binding \& substitution
-  \item Type-checking
-  \item Top level
+  \item \emph{type-directed phase}: apply extensionality rules for~$A$, if any,
+  \item \emph{normalization phase}: normalize $t$ and $u$ and compare the normal forms.
   \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Algorithmic equality checking}
+
+  Judgement forms:
+  %
+  \begin{tabbing}
+    $\Gamma \vdash t \equiv_A u$ \qquad\quad\= ``terms $t$ and $u$ of type $A$ are equal'' \\
+    $\Gamma \vdash t \nfequiv_A u$ \> ``normal terms $t$ and $u$ of type $A$ are equal'' \\
+    $\Gamma \vdash t \neutequiv u $ \> ``neutral terms $t$ and $u$ are equal'' \\
+    $\Gamma \vdash t \norm u$ \> ``term $t$ normalizes to $u$'' \\
+    $a \equiv_\alpha b$ \> ``expressions $a$ and $b$ are syntactically equal''
+  \end{tabbing}
+\end{frame}
+
+
+\begin{frame}
+  \begin{mathpar}
+    \inferenceRule{Eq-Ext-Pi}
+    {\Gamma \types A \norm \prd{x \of B} C(x) \\
+      \Gamma, x \of B \types t\,x \equiv_{C(x)} u\,x
+    }{
+      \Gamma \types t \equiv_A u
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types t \norm t' \\
+      \Gamma \types u \norm u' \\
+      \Gamma \types t' \nfequiv_A u'
+    }{
+      \Gamma \types t \equiv_A u
+    }
+
+    \inferenceRule{}
+    {
+    }{
+      \Gamma \types \Type \nfequiv_{\Type} \Type
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types A \equiv_{\Type} C \\
+      \Gamma, x \of A \types B(x) \equiv_{\Type} D(x)
+    }{
+      \Gamma \types \prd{x \of A} B(x) \nfequiv_{\Type} \prd{x \of C} D(x)
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types t \neutequiv u
+    }{
+      \Gamma \types t \nfequiv_A u
+    }
+
+    \inferenceRule{}
+    {
+      (x \of A) \in \Gamma \\
+      x \equiv_\alpha y
+    }{
+      \Gamma \types x \neutequiv y
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types s \neutequiv u \\
+      \Gamma \types s : \prd{x \of A} B(x) \\
+      \Gamma \types t \equiv_A v
+    }{
+      \Gamma \types s \, t \neutequiv u \, v
+    }
+  \end{mathpar}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Weak-head normal forms}
+
+  \begin{mathpar}
+
+    \inferenceRule{}
+    {
+      (\ofLet{x}{t}{A}) \in \Gamma \\
+      \Gamma \types t \norm u
+    }{
+      \Gamma \types x \norm u
+    }
+
+
+    \inferenceRule{}
+    {
+      (x \of A) \in \Gamma
+    }{
+      \Gamma \types x \norm x
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types t \norm \lam{x \of A} t'(x) \\
+      \Gamma \types t'(u) \norm v
+    }{
+      \Gamma \types t \, u \norm v
+    }
+
+    \inferenceRule{}
+    {
+      \Gamma \types t \norm t'
+    }{
+      \Gamma \types t \, u \norm t' \, u
+    }
+
+  \end{mathpar}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 2
+
+    \bigskip
+
+    \Large
+    A monadic type-checker
+  \end{center}
 \end{frame}
 
 
@@ -295,7 +607,7 @@ Université Paris--Saclay, September 8--12, 2025
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{frame}
   \begin{center}
-    \Huge Lecture 2
+    \Huge Lecture 3
 
     \bigskip
 
@@ -306,27 +618,8 @@ Université Paris--Saclay, September 8--12, 2025
 
 % What are meta-variables?
 % Where are they used?
+% Unification
 % Implementation monadic-style
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}
-  \begin{center}
-    \Huge Lecture 3
-
-    \bigskip
-
-    \Large
-    Algebraic effects and handlers
-  \end{center}
-\end{frame}
-
-% Algebraic effects and handler - blitz intro
-% - algebraic theory
-% - effects as algebraic theories
-% - handlers
-% - OCaml implementation
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -338,11 +631,10 @@ Université Paris--Saclay, September 8--12, 2025
     \bigskip
 
     \Large
-    Effects in proof assistants
+    Variables as computational effects
   \end{center}
 \end{frame}
 
-% Meta-variables as promises
-% Handlers: 
+% Contexts as handlers, variables as effects
 
 \end{document}
