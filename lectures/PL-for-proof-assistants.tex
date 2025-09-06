@@ -150,20 +150,16 @@ Université Paris--Saclay, September 8--12, 2025
 
   \begin{itemize}
   \item A collection of inference rules
-  \item A closure system on a set of judgements
   \item Quotient inductive inductive type (QIIT)
+  \item A closure system on a set of judgements
   \item Second-order generalized algebraic theory (SOGAT)
   \item A small representable map category
   \end{itemize}
 
   \note[item]{There are many views of what a type theory is, ranging syntactic to semantic ones. Each view enriches our understanding of type theory and has its uses.}
-  \note[item]{For implementation purposes, a good starting point is a \emph{syntactic presentation} of type theory.}
-
+  \note[item]{For implementation purposes, \emph{syntactic presentations} are a good starting point.}
 \end{frame}
 
-% Faux type theory
-% - rules
-% - computation and extensionality rules (η-rules)
 
 \begin{frame}
   \frametitle{Faux Type Theory -- syntax \& judgement forms}
@@ -179,6 +175,7 @@ Université Paris--Saclay, September 8--12, 2025
     &{\mid}\quad \lam{x \of A} t &&\text{function} \\
     &{\mid}\quad \letin{x}{t}{u} &&\text{local definition}
   \end{align*}
+  %
   \pause
   %
   Judgement forms:
@@ -196,6 +193,22 @@ Université Paris--Saclay, September 8--12, 2025
     $x : A$ \qquad\qquad \= ``$x$ has type $A$''\\
     $\ofLet{x}{t}{A}$ \> ``$x$ equals $t$ and has type $A$''
   \end{tabbing}
+
+
+
+  \note[item]{We're going to work with a small type theory, called ``faux type theory'', that only has some basic features: a universe, dependent products, and local definitions.}
+
+  \note[item]{Textbook presentations of type theory often omit local definitions, since they can always be eliminated by substitution. However, working without them in practice would be cumbersome, so we include them to illustrate their implementation.}
+
+  \note[item]{The first judgement form asserts that a term $t$ has a type $A$ in context $\Gamma$.}
+
+  \note[item]{The second judgement form asserts terms $t$ and $u$ have type~$A$ and are equal. This is \emph{typed} equality. (Untyped equality would read just $\Gamma \types t = u$ without any type information. In principle, it would allow us to compare terms of different types.)}
+
+  \note[item]{A context $\Gamma$ holds information about variables. It always specifies the type of a variable, and optionally its definition (to be used in combination with local definitions).
+
+  We are not very precise about what a context really looks like here. Is it a list? A dictionary?
+  It does not matter much how it is represented, so long as it provides information about
+  variables.}
 
 \end{frame}
 
@@ -251,8 +264,40 @@ Université Paris--Saclay, September 8--12, 2025
     }
   \end{mathpar}
 
-  \note{Discuss presuppositions}
-  \note{Discuss absence of $\Gamma$}
+  \note[item]{Next, let us look at the rules of Faux Type Theory. The presentation given here is of the sort one usually finds in books and papers, namely as a collection of \emph{rules}.}
+
+  \note[item]{We are assuming you have seen such rules before. Briefly, a rule has a number of \emph{premises}, written above the line, and a \emph{conclusion} below the line. We give each rule a name, written in light gray.}
+
+  \note[item]{In the variable rule, the top line should be read as ``According to $\Gamma$, $x$ has type~$A$.''
+    In particular, $(x \of A) \in \Gamma$ holds also when $\Gamma$ stores a definition $\ofLet{x}{t}{A}$.}
+
+
+  \note[item]{Our type theory claims that $\Type$ is a $\Type$. This is one of the reasons for calling it ``faux'', because such a type theory is inconsistent in the sense that every type is inhabited. (Exercise: write down a term of type $\prd{A \of \Type} A$.) Nevertheless, such theories can still be useful as models of (partial) computation, and in fact our theory is Turing complete.}
+
+  \note[item]{An alternative to $\Type : \Type$ would be the introduction of a hierarchy of universes $\Type_0 : \Type_1 : \cdots$, or perhaps just $\Type : \mathsf{Kind}$. In the implementation, doing so would bring in additional complexity that we prefer to avoid. (Exercise: remove $\Type : \Type$.)}
+
+  \note[item]{Observe how the rule \rref{Tm-Let} stores a local definition in the context.}
+\end{frame}
+
+
+\begin{frame}
+
+  \begin{mathpar}
+        \inferenceRule{Tm-App}
+    {\Gamma \types t : \prd{x \of A} B(x)
+      \\
+      \Gamma \types u : A
+    }{
+      \Gamma \types t\,u : B(u)
+    }
+
+    \inferenceRule{Tm-Lambda}
+    {\Gamma \types A : \Type \\
+      \Gamma, x \of A \types t(x) : B(x)
+    }{
+      \Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)
+    }
+  \end{mathpar}
 
 \end{frame}
 
@@ -316,8 +361,6 @@ Université Paris--Saclay, September 8--12, 2025
 
   \end{mathpar}
 
-  \note{Discuss presuppositions}
-  \note{Discuss absence of $\Gamma$}
 
 \end{frame}
 
@@ -580,6 +623,22 @@ Université Paris--Saclay, September 8--12, 2025
     }
 
   \end{mathpar}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Exercise}
+
+  \begin{enumerate}
+  \item Write down the rules for the unit type.
+  \item Write down the rules for dependent sums.
+  \item Install the implementation of Faux Type Theory from \url{https://github.com/andrejbauer/faux-type-theory}.
+  \item Use the implementation to derive $\prd{A \of \Type} A$.
+  \end{enumerate}
+
+  \note[item]{Here are some exercises for you to work on. I \emph{strongly} recommend that you find a partner or a small group and do them together. If you do not know anyone, ask your neighbor if they'd like to work together.}
+  \note[item]{When writing down the rules, do not forget about equality rules, and write down both the declarative and bidirectional versions.}
+  \note[item]{I am of course available for any questions you might have. And please show me your solution---that is important feedback for me.}
+
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
