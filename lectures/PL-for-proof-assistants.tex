@@ -329,6 +329,23 @@ Université Paris--Saclay, September 8--12, 2025
     \item if $\Delta \types t : A$ and $\Gamma \subseteq \Delta$ and $\mathsf{FV}(t) \subseteq |\Gamma|$ then $\Gamma \types t : A$.
     \end{itemize}
   \end{itemize}
+
+  \note[item]{Let us stop here to comment on how the rules are written. Let us compare the rules for application and
+    functions. Why does \rref{Tm-Lambda} check that $A$ is a type but \rref{Tm-App} does not? In fact, why are we not
+    checking that $B$ is a type in context $\Gamma, x \of A$?}
+  
+  \note[item]{If one were very pedantic, one would add additional premises, shown in blue.
+    These are called \emph{\color{presupColor}{presuppositions}} -- they ensure that the contexts and types appearing in other judgements are well-formed.}
+
+  \note[item]{It turns out that the presuppositions are redundant, because the rules on the previous slide satisfy
+    the \emph{Presuppositions theorem}, which says that the constituent parts of a derivable judgement are well-formed. (Note: we always assume that $\Gamma$ does not contain any ``garbage''. Exercise: make this idea precise and prove the Presuppositions theorem.)}
+
+  \note[item]{In implementation we prefer the \emph{economic} rules that omit presuppositions, so long as the
+    Presuppositions theorem is valid. Concretely, in \rref{Tm-App} this allows us to skip re-checking that $A$ and $B$
+    are well-formed types (apply the Presuppositions theorem to the premises).}
+
+  \note[item]{There are several other desirable meta-theorems that we shall rely on in the implementation.}
+
 \end{frame}
 
 
@@ -359,7 +376,7 @@ Université Paris--Saclay, September 8--12, 2025
 
     \pause
 
-    \inferenceRule{Eq-Var}
+    \inferenceRule{Eq-Def}
     {(x \,{:}{=}\, t \of A) \in \Gamma}
     {\Gamma \types x \equiv_A t}
 
@@ -391,6 +408,21 @@ Université Paris--Saclay, September 8--12, 2025
 
   \end{mathpar}
 
+  \note[item]{Let us proceed with equality rules. They come in several batches.}
+
+  \note[item]{The first one states that equality is an equivalence relation.}
+
+  \note[item]{The conversion rule \rref{Eq-Conv} states that a type may be replaced with an equal one.}
+
+  \note[item]{\rref{Eq-Def} states that a variable is equal to its definition. This is sometimes called a ``$\delta$-rule''.}
+
+  \note[item]{The most interesting are the rules for application and functions. \rref{Eq-Comp} is also known as ``$\beta$-rule'' and is a \emph{computation rule}. In the implementation it will be used to compute normal forms of terms. It has a clear left-to-right direction: the left-hand side serves as a \emph{pattern} against which we can match a term, if possible, and rewrite it to the right-hand-side.}
+
+  \note[item]{\rref{Eq-Ext} is an \emph{extensionality rule}. It does not have a direction, but we can tell that it should be used when we compare terms at a product type. (Exercise: show that in the presence of other rules, the extensionality rule is bi-direvable form the $\eta$-rule for function.)}.
+
+  \note[item]{Finally, there is a rule for local definitions which explains that a definition may be eliminated by substitution.}
+
+  \note[item]{We now have all the rules of Faux type theory. Do they indicate how to implement a proof checker? Not quite. It is not clear which rule to use in a given situation. For example, conversion \rref{Eq-Conv} can \emph{always} be applied, as well as reflexivity, symmetry and transitivity. We need to do something about this.}
 
 \end{frame}
 
