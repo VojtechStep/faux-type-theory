@@ -1,0 +1,176 @@
+\documentclass[10pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfpages}
+\usepackage{xcolor}
+\usepackage{xypic}
+\usepackage{upgreek}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{mathpartir}
+
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{txfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+\usepackage{pgfpages}
+
+\mode<presentation>
+% \Usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+% These slides also contain speaker notes. You can print just the slides,
+% just the notes, or both, depending on the setting below. Comment out the want
+% you want.
+
+%\setbeameroption{hide notes} % Only slides
+%\setbeameroption{show only notes} % Only notes
+\setbeameroption{show notes on second screen=right} % Both
+
+% Give a slight yellow tint to the notes page
+\setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% MACROS
+
+%% Typing judgements & rules
+\newcommand{\emptyctx}{{\cdot}} % empty context
+\newcommand{\typingrule}[2]{\infer{#1}{#2}}
+\newcommand{\of}{\,{:}\,} % typing of a variable in a context
+\newcommand{\ofLet}[3]{#1 \,{:}{=}\, #2 \,{:}\ #3} % typing of a variable in a context
+\newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\checkTy}{\leftsquigarrow}
+\newcommand{\inferTy}{\rightsquigarrow}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}\,}
+\newcommand{\lam}[1]{\lambda (#1).\,}
+
+\newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
+
+\newcommand{\nfEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{nf}}{\simeq}}}
+%\newcommand{\neuEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{neu}}{\simeq}}}
+
+\newcommand{\norm}{\hookrightarrow}
+
+%%%%%%% GROUP: named inference rules
+
+% the style for rule names
+\newcommand{\rulename}[1]{\textnormal{\textsc{#1}}}
+
+% use \rref{...} to refer to a rule in text
+\newcommand{\rref}[1]{\hyperlink{rule:#1}{\rulename{#1}}}
+
+% the color of rule names
+\definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+\definecolor{presupColor}{rgb}{0,0,1}
+\definecolor{grayoutColor}{rgb}{0.7,0.7,0.7}
+
+% named inference rule
+\newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Programming language techniques \\for proof assistants\\[2ex]Lecture 2\\A monadic type checker}
+\author{Andrej Bauer\\University of Ljubljana}
+\date{}
+\begin{document}
+
+\begin{frame}
+\hbox{}\vfil
+
+\titlepage
+
+\vfil
+
+\begin{center}
+\footnotesize
+International School on Logical Frameworks and Proof Systems Interoperability \\
+Université Paris--Saclay, September 8--12, 2025
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Overview}
+
+  \begin{itemize}
+  \item \textcolor{grayoutColor}{Lecture 1: From declarative to algorithmic type theory}
+  \item
+    Lecture 2: A monadic type checker
+    \begin{itemize}\footnotesize
+    \item Parsing, bound variables and substitution
+    \item A monad for typing contexts
+    \item A monadic proof checker
+    \end{itemize}
+  \item
+    \textcolor{grayoutColor}{Lecture 3: Holes and unification}
+  \item
+    \textcolor{grayoutColor}{Lecture 4: Variables as computational effects}
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 2
+
+    \bigskip
+
+    \Large
+    A monadic type checker
+  \end{center}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Recap}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Components of a proof checker}
+\end{frame}
+
+\begin{frame}
+  \frametitle{OCaml?}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Solved problems: parsing}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Solved problems: bound variables and substitution}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Abstract syntax}
+
+  show the data types from \texttt{TT}.
+\end{frame}
+
+\begin{frame}
+  \frametitle{A monad for contexts}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Type-checking}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Normalization and equality}
+\end{frame}
+
+
+\end{document}
