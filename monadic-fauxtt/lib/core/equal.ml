@@ -82,7 +82,7 @@ and equal_spine x1 es1 x2 es2 =
 
   (return @@ Bindlib.eq_vars x1 x2) &&&
   begin
-    let* (_, t) = Context.lookup_var x1 in
+    let* t = Context.lookup_ty x1 in
     fold t es1 es2
   end
 

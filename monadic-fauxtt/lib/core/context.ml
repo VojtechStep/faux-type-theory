@@ -57,11 +57,11 @@ let extend x ?def ty ctx =
 
 let lookup_ident x {idents; _} = IdentMap.find_opt x idents
 
-let lookup_var v {vars; _} = VarMap.find v vars
+let lookup v {vars; _} = VarMap.find v vars
 
-let lookup_var_ v {vars; _} =
-  let (def, t) = VarMap.find v vars in
-  (Option.map TT.lift_tm def, TT.lift_ty t)
+let lookup_ty v ctx = snd (lookup v ctx)
+
+let lookup_def v ctx = fst (lookup v ctx)
 
 let with_var v ?def t (c : 'a m) ctx =
   let x = Bindlib.name_of v in

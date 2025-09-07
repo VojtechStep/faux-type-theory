@@ -51,8 +51,8 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
        Context.lookup_ident x >>= function
        | None -> error ~loc (UnknownIdent x)
        | Some v ->
-          let* (_, t) = Context.lookup_var_ v in
-          return (TT.var_ v, t)
+          let* t = Context.lookup_ty v in
+          return (TT.var_ v, TT.lift_ty t)
      end
 
   | ISyntax.Let (x, e1, e2) ->
