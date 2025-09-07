@@ -22,6 +22,8 @@
 \usefonttheme{serif}
 \setbeamertemplate{navigation symbols}{}
 
+
+
 % Frame number
 \setbeamertemplate{footline}[frame number]{}
 
@@ -50,14 +52,15 @@
 \newcommand{\inferTy}{\rightsquigarrow}
 
 \newcommand{\Type}{\mathsf{Type}}
-\newcommand{\prd}[1]{\Uppi_{(#1)}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}\,}
 \newcommand{\lam}[1]{\lambda (#1).\,}
 
 \newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
 
-\newcommand{\nfequiv}{\equiv^\mathsf{nf}}
-\newcommand{\neutequiv}{\equiv^0}
-\newcommand{\norm}{\leadsto}
+\newcommand{\nfEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{nf}}{\simeq}}}
+\newcommand{\neuEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{neu}}{\simeq}}}
+
+\newcommand{\norm}{\hookrightarrow}
 
 %%%%%%% GROUP: named inference rules
 
@@ -69,6 +72,8 @@
 
 % the color of rule names
 \definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+\definecolor{presupColor}{rgb}{0,0,1}
 
 % named inference rule
 \newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
@@ -170,10 +175,10 @@ Université Paris--Saclay, September 8--12, 2025
     t, u, A, B \mathrel{{:}{:}{=}}&\quad
      x                       &&\text{variable} \\
     &{\mid}\quad \Type           &&\text{universe} \\
-    &{\mid}\quad \prd{x \of A} B &&\text{product} \\
+    &{\mid}\quad \prd{x \of A} B &&\text{product} && \text{($x$ bound in $B$)} \\
     &{\mid}\quad t\,u            &&\text{application} \\
-    &{\mid}\quad \lam{x \of A} t &&\text{function} \\
-    &{\mid}\quad \letin{x}{t}{u} &&\text{local definition}
+    &{\mid}\quad \lam{x \of A} t &&\text{function} && \text{($x$ bound in $t$)} \\
+    &{\mid}\quad \letin{x}{t}{u} &&\text{local definition} && \text{($x$ bound in $u$)}
   \end{align*}
   %
   \pause
@@ -181,8 +186,8 @@ Université Paris--Saclay, September 8--12, 2025
   Judgement forms:
   %
   \begin{tabbing}
-      $\Gamma \vdash t : A$ \qquad\qquad \= ``In context $\Gamma$, term $t$ has type $A$.'' \\
-      $\Gamma \vdash t \equiv_A u$ \> ``In context $\Gamma$, terms $t$ and $u$ of type $A$ are equal.''
+      $\Gamma \types t : A$ \qquad\qquad \= ``In context $\Gamma$, term $t$ has type $A$.'' \\
+      $\Gamma \types t \equiv_A u$ \> ``In context $\Gamma$, terms $t$ and $u$ of type $A$ are equal.''
   \end{tabbing}
   %
   \pause
@@ -231,25 +236,25 @@ Université Paris--Saclay, September 8--12, 2025
 
     \inferenceRule{Ty-Pi}
     {\Gamma \types A : \Type \\
-     \Gamma, x \of A \types B(x) : \Type}
-    {\Gamma \types \prd{x \of A} B(x) : \Type}
+     \Gamma, x \of A \types B : \Type}
+    {\Gamma \types \prd{x \of A} B : \Type}
 
     \pause
     \\
 
     \inferenceRule{Tm-App}
-    {\Gamma \types t : \prd{x \of A} B(x)
+    {\Gamma \types t : \prd{x \of A} B
       \\
       \Gamma \types u : A
     }{
-      \Gamma \types t\,u : B(u)
+      \Gamma \types t\,u : B[u/x]
     }
 
     \inferenceRule{Tm-Lambda}
     {\Gamma \types A : \Type \\
-      \Gamma, x \of A \types t(x) : B(x)
+      \Gamma, x \of A \types t : B
     }{
-      \Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)
+      \Gamma \types \lam{x \of A} t : \prd{x \of A} B
     }
 
     \pause
@@ -258,9 +263,9 @@ Université Paris--Saclay, September 8--12, 2025
     \inferenceRule{Tm-Let}
     {\Gamma \types t : A
       \\
-      \Gamma, \ofLet{x}{t}{A} \types u(x) : B(x)
+      \Gamma, \ofLet{x}{t}{A} \types u : B
     }{
-      \Gamma \types (\letin{x}{t}{u}) : B(t)
+      \Gamma \types (\letin{x}{t}{u}) : B[t/x]
     }
   \end{mathpar}
 
@@ -282,23 +287,48 @@ Université Paris--Saclay, September 8--12, 2025
 
 \begin{frame}
 
-  \begin{mathpar}
-        \inferenceRule{Tm-App}
-    {\Gamma \types t : \prd{x \of A} B(x)
+  {\small
+  \begin{equation*}
+    \inferenceRule{Tm-App}
+    {\onslide<2->{\color{presupColor}{\Gamma \types A : \Type}} \\
+     \onslide<2->{\color{presupColor}{\Gamma, x \of A \types B : \Type}}
+     \\\\
+     \Gamma \types t : \prd{x \of A} B
       \\
       \Gamma \types u : A
     }{
-      \Gamma \types t\,u : B(u)
+      \Gamma \types t\,u : B[u/x]
     }
-
+    \quad
     \inferenceRule{Tm-Lambda}
-    {\Gamma \types A : \Type \\
-      \Gamma, x \of A \types t(x) : B(x)
+    {\onslide<2->{\color{presupColor}{\Gamma, x \of A \types B : \Type}}
+     \\\\
+     \Gamma \types A : \Type \\
+     \Gamma, x \of A \types t : B
     }{
-      \Gamma \types \lam{x \of A} t(x) : \prd{x \of A} B(x)
+      \Gamma \types \lam{x \of A} t : \prd{x \of A} B
     }
-  \end{mathpar}
+  \end{equation*}}
 
+  \begin{itemize}
+  \item<3-> \textbf{Presupposition theorem:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ then $\Gamma \types A : \Type$,
+    \item if $\Gamma \types t \equiv_A u$ then $\Gamma \types t : A$ and $\Gamma \types u : A$.
+    \end{itemize}
+  \item<4-> \textbf{Uniqueness of typing:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ and $\Gamma \types t : B$ then $\Gamma \types A \equiv_\Type B$.
+    \end{itemize}
+  \item<5-> \textbf{Weakening:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ and $\Gamma \subseteq \Delta$ then $\Delta \types t : A$.
+    \end{itemize}
+  \item<5-> \textbf{Strengthening:}
+    \begin{itemize}
+    \item if $\Delta \types t : A$ and $\Gamma \subseteq \Delta$ and $\mathsf{FV}(t) \subseteq |\Gamma|$ then $\Gamma \types t : A$.
+    \end{itemize}
+  \end{itemize}
 \end{frame}
 
 
@@ -336,17 +366,17 @@ Université Paris--Saclay, September 8--12, 2025
     \pause
     \\
 
-    \inferenceRule{Eq-Beta}
+    \inferenceRule{Eq-Comp}
     {\Gamma \types A : \Type \\
-      \Gamma, x \of A \types t(x) : B(x) \\
+      \Gamma, x \of A \types t : B \\
       \Gamma \types u : A
     }{
-      \Gamma \types (\lam{x \of A} t(x))\,u \equiv_{B(u)} t(u)
+      \Gamma \types (\lam{x \of A} t)\,u \equiv_{B[u/x]} t[u/x]
     }
 
     \inferenceRule{Eq-Ext}
-    {\Gamma, x \of A \types t\,x \equiv_{B(x)} u\,x : B(x)}
-    {\Gamma \types t \equiv_{\prd{x \of A} B(x)} u}
+    {\Gamma, x \of A \types t\,x \equiv_{B} u\,x : B}
+    {\Gamma \types t \equiv_{\prd{x \of A} B} u}
 
     \pause
 
@@ -354,9 +384,9 @@ Université Paris--Saclay, September 8--12, 2025
     {
       \Gamma \types t : A
       \\
-      \Gamma, x \,{:}{=}\, t \of A \types u(x) : B(x)
+      \Gamma, x \,{:}{=}\, t \of A \types u : B
     }{
-      \Gamma \types (\letin{x}{t}{u(x)}) \equiv_{B(t)} u(t)
+      \Gamma \types (\letin{x}{t}{u}) \equiv_{B[t/x]} u[t/x]
     }
 
   \end{mathpar}
@@ -371,15 +401,22 @@ Université Paris--Saclay, September 8--12, 2025
   Replace $\Gamma \types t : A$ with two judgements forms:
   %
   \begin{tabbing}
-      $\Gamma \vdash t \inferTy A$ \qquad\qquad \= ``In context $\Gamma$, infer that term $t$ has type $A$.'' \\
-      $\Gamma \vdash t \checkTy A$ \> ``In context $\Gamma$, check that term  $t$ has type $A$.''
+      $\Gamma \types t \inferTy A$ \qquad\qquad \= ``In context $\Gamma$, infer that term $t$ has type $A$.'' \\
+      $\Gamma \types t \checkTy A$ \> ``In context $\Gamma$, check that term  $t$ has type $A$.''
   \end{tabbing}
   %
   \pause
   Desiderata:
   %
   \begin{itemize}
-  \item \emph{Soundness} of bidirectional type-checking:
+  \item The rules should be \emph{deterministic} and \emph{syntax-driven}:
+    %
+    \begin{itemize}
+    \item at most one rule applies in any situation, and
+    \item the candidate rule is apparent from the syntax of~$t$.
+    \end{itemize}
+  \item \pause
+    \emph{Soundness} of bidirectional type-checking:
     %
     \begin{itemize}
     \item if $\Gamma \types t \inferTy A$ then $\Gamma \types t : A$, and
@@ -389,12 +426,6 @@ Université Paris--Saclay, September 8--12, 2025
     %
     \begin{itemize}
     \item if $\Gamma \types t : A$ then $\Gamma \types t \checkTy A$.
-    \end{itemize}
-  \item The rules should be \emph{deterministic} and \emph{syntax-driven}:
-    %
-    \begin{itemize}
-    \item at most one candidate rule applies in any situation, and
-    \item the candidate rule is apparent from the syntax of~$t$.
     \end{itemize}
   \end{itemize}
 
@@ -430,34 +461,36 @@ Université Paris--Saclay, September 8--12, 2025
    {\Gamma \types \Type \inferTy \Type}
 
    \inferenceRule{Infer-Pi}
-   {\Gamma, x \of A \types B(x) : \Type}
-   {\Gamma \types \prd{x \of A} B(x) \inferTy \Type}
+   {\Gamma, x \of A \types B : \Type}
+   {\Gamma \types \prd{x \of A} B \inferTy \Type}
+
+   \\\\
 
    \inferenceRule{Infer-App}
    {
-     \Gamma \types t \inferTy \prd{x \of A} B(x) \\
+     \Gamma \types t \inferTy \prd{x \of A} B \\
      \Gamma \types u \checkTy A
    }{
-     \Gamma \types t\,u \inferTy B(u)
+     \Gamma \types t\,u \inferTy B[u/x]
    }
 
    \inferenceRule{Infer-Lambda}
    {
      \Gamma \types A \checkTy \Type \\
-     \Gamma, x \of A \types t(x) \inferTy B(x)
+     \Gamma, x \of A \types t \inferTy B
    }{
-     \Gamma \types \lam{x \of A} t(x) \inferTy \prd{x \of A} B(x)
+     \Gamma \types \lam{x \of A} t \inferTy \prd{x \of A} B
    }
 
-   \pause
+  %  \pause
 
-   \inferenceRule{Infer-Ascribe}
-   {
-     \Gamma \types A \checkTy \Type \\
-     \Gamma \types t \checkTy A
-   }{
-     \Gamma \types (t : A) \inferTy A
-  }
+  %  \inferenceRule{Infer-Ascribe}
+  %  {
+  %    \Gamma \types A \checkTy \Type \\
+  %    \Gamma \types t \checkTy A
+  %  }{
+  %    \Gamma \types (t : A) \inferTy A
+  % }
   \end{mathpar}
 \end{frame}
 
@@ -470,7 +503,7 @@ Université Paris--Saclay, September 8--12, 2025
    \inferenceRule{Infer-Let}
    {
      \Gamma \types t \inferTy A \\
-     \Gamma, \ofLet{x}{t}{A} \types u(x) \inferTy B(x)
+     \Gamma, \ofLet{x}{t}{A} \types u \inferTy B
    }{
      \Gamma \types (\letin{x}{t}{u}) \inferTy B(t)
    }
@@ -478,7 +511,7 @@ Université Paris--Saclay, September 8--12, 2025
    \inferenceRule{Check-Let}
    {
      \Gamma \types t \inferTy A \\
-     \Gamma, \ofLet{x}{t}{A} \types u(x) \checkTy B
+     \Gamma, \ofLet{x}{t}{A} \types u \checkTy B
    }{
      \Gamma \types (\letin{x}{t}{u}) \checkTy B
    }
@@ -518,11 +551,10 @@ Université Paris--Saclay, September 8--12, 2025
   Judgement forms:
   %
   \begin{tabbing}
-    $\Gamma \vdash t \equiv_A u$ \qquad\quad\= ``terms $t$ and $u$ of type $A$ are equal'' \\
-    $\Gamma \vdash t \nfequiv_A u$ \> ``normal terms $t$ and $u$ of type $A$ are equal'' \\
-    $\Gamma \vdash t \neutequiv u $ \> ``neutral terms $t$ and $u$ are equal'' \\
-    $\Gamma \vdash t \norm u$ \> ``term $t$ normalizes to $u$'' \\
-    $a \equiv_\alpha b$ \> ``expressions $a$ and $b$ are syntactically equal''
+    $\Gamma \types t \equiv_A u$ \qquad\quad\= ``terms $t$ and $u$ of type $A$ are equal'' \\
+    $\Gamma \types t \nfEquiv_A u$ \> ``normal terms $t$ and $u$ of type $A$ are equal'' \\
+    $\Gamma \types t \neuEquiv u $ \> ``neutral terms $t$ and $u$ are equal'' \\
+    $\Gamma \types t \norm u$ \> ``term $t$ normalizes to $u$''
   \end{tabbing}
 \end{frame}
 
@@ -530,8 +562,8 @@ Université Paris--Saclay, September 8--12, 2025
 \begin{frame}
   \begin{mathpar}
     \inferenceRule{Eq-Ext-Pi}
-    {\Gamma \types A \norm \prd{x \of B} C(x) \\
-      \Gamma, x \of B \types t\,x \equiv_{C(x)} u\,x
+    {\Gamma \types A \norm \prd{x \of B} C \\
+      \Gamma, x \of B \types t\,x \equiv_{C} u\,x
     }{
       \Gamma \types t \equiv_A u
     }
@@ -540,7 +572,7 @@ Université Paris--Saclay, September 8--12, 2025
     {
       \Gamma \types t \norm t' \\
       \Gamma \types u \norm u' \\
-      \Gamma \types t' \nfequiv_A u'
+      \Gamma \types t' \nfEquiv_A u'
     }{
       \Gamma \types t \equiv_A u
     }
@@ -548,39 +580,38 @@ Université Paris--Saclay, September 8--12, 2025
     \inferenceRule{}
     {
     }{
-      \Gamma \types \Type \nfequiv_{\Type} \Type
+      \Gamma \types \Type \nfEquiv_{\Type} \Type
     }
 
     \inferenceRule{}
     {
       \Gamma \types A \equiv_{\Type} C \\
-      \Gamma, x \of A \types B(x) \equiv_{\Type} D(x)
+      \Gamma, x \of A \types B \equiv_{\Type} D
     }{
-      \Gamma \types \prd{x \of A} B(x) \nfequiv_{\Type} \prd{x \of C} D(x)
+      \Gamma \types \prd{x \of A} B \nfEquiv_{\Type} \prd{x \of C} D
     }
 
     \inferenceRule{}
     {
-      \Gamma \types t \neutequiv u
+      \Gamma \types t \neuEquiv u
     }{
-      \Gamma \types t \nfequiv_A u
+      \Gamma \types t \nfEquiv_A u
     }
 
     \inferenceRule{}
     {
       (x \of A) \in \Gamma \\
-      x \equiv_\alpha y
     }{
-      \Gamma \types x \neutequiv y
+      \Gamma \types x \neuEquiv x
     }
 
     \inferenceRule{}
     {
-      \Gamma \types s \neutequiv u \\
-      \Gamma \types s : \prd{x \of A} B(x) \\
+      \Gamma \types s \neuEquiv u \\
+      \Gamma \types s : \prd{x \of A} B \\
       \Gamma \types t \equiv_A v
     }{
-      \Gamma \types s \, t \neutequiv u \, v
+      \Gamma \types s \, t \neuEquiv u \, v
     }
   \end{mathpar}
 \end{frame}
@@ -589,9 +620,22 @@ Université Paris--Saclay, September 8--12, 2025
 \begin{frame}
   \frametitle{Weak-head normal forms}
 
+  \small
   \begin{mathpar}
 
-    \inferenceRule{}
+    \inferenceRule{Nf-Type}
+    {\hbox{}}
+    {\Gamma \types \Type \norm \Type}
+
+    \inferenceRule{Nf-Pi}
+    {\hbox{}}
+    {\Gamma \types \prd{x \of A} B \norm \prd{x \of A} B}
+
+    \inferenceRule{Nf-Lambda}
+    {\hbox{}}
+    {\Gamma \types \lam{x \of A} t \norm \lam{x \of A} t}
+
+   \inferenceRule{Nf-Var-Def}
     {
       (\ofLet{x}{t}{A}) \in \Gamma \\
       \Gamma \types t \norm u
@@ -599,45 +643,55 @@ Université Paris--Saclay, September 8--12, 2025
       \Gamma \types x \norm u
     }
 
-
-    \inferenceRule{}
+    \inferenceRule{Nf-Var-Neut}
     {
       (x \of A) \in \Gamma
+      \\
+      (\ofLet{x}{\_}{\_} \not\in \Gamma)
     }{
       \Gamma \types x \norm x
     }
 
-    \inferenceRule{}
+    \inferenceRule{Nf-App-Comp}
     {
-      \Gamma \types t \norm \lam{x \of A} t'(x) \\
-      \Gamma \types t'(u) \norm v
+      \Gamma \types t \norm \lam{x \of A} t' \\
+      \Gamma \types t'[u/x] \norm v
     }{
       \Gamma \types t \, u \norm v
     }
 
-    \inferenceRule{}
+    \inferenceRule{Nf-App-Neut}
     {
-      \Gamma \types t \norm t'
+      \Gamma \types t \norm t' \neq \lam{\_\of\_} \_
     }{
       \Gamma \types t \, u \norm t' \, u
+    }
+
+    \inferenceRule{Nf-Let}
+    {
+      \Gamma \types t[u/x] \norm v
+    }{
+      \Gamma \types (\letin{x}{u}{t}) \norm v
     }
 
   \end{mathpar}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Exercise}
+  \frametitle{Exercises}
 
   \begin{enumerate}
+  \item Find someone to work with.
   \item Write down the rules for the unit type.
   \item Write down the rules for dependent sums.
   \item Install the implementation of Faux Type Theory from \url{https://github.com/andrejbauer/faux-type-theory}.
   \item Use the implementation to derive $\prd{A \of \Type} A$.
   \end{enumerate}
 
-  \note[item]{Here are some exercises for you to work on. I \emph{strongly} recommend that you find a partner or a small group and do them together. If you do not know anyone, ask your neighbor if they'd like to work together.}
+  \note[item]{Here are some exercises for you to work on. Find a partner or a small group and do them together. If you do not know anyone, ask the person sitting next to you if they'd like to work together.}
   \note[item]{When writing down the rules, do not forget about equality rules, and write down both the declarative and bidirectional versions.}
-  \note[item]{I am of course available for any questions you might have. And please show me your solution---that is important feedback for me.}
+  \note[item]{I am of course available for any questions you might have, in person and on Zulip.}
+  \note[item]{Please show me your solutions---that's important feedback for me.}
 
 \end{frame}
 
