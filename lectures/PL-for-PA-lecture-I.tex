@@ -1,0 +1,806 @@
+\documentclass[10pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfpages}
+\usepackage{xcolor}
+\usepackage{xypic}
+\usepackage{upgreek}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{mathpartir}
+
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{txfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+\usepackage{pgfpages}
+
+\mode<presentation>
+% \Usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+% These slides also contain speaker notes. You can print just the slides,
+% just the notes, or both, depending on the setting below. Comment out the want
+% you want.
+
+%\setbeameroption{hide notes} % Only slides
+%\setbeameroption{show only notes} % Only notes
+\setbeameroption{show notes on second screen=right} % Both
+
+% Give a slight yellow tint to the notes page
+\setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% MACROS
+
+%% Typing judgements & rules
+\newcommand{\emptyctx}{{\cdot}} % empty context
+\newcommand{\typingrule}[2]{\infer{#1}{#2}}
+\newcommand{\of}{\,{:}\,} % typing of a variable in a context
+\newcommand{\ofLet}[3]{#1 \,{:}{=}\, #2 \,{:}\ #3} % typing of a variable in a context
+\newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\checkTy}{\leftsquigarrow}
+\newcommand{\inferTy}{\rightsquigarrow}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}\,}
+\newcommand{\lam}[1]{\lambda (#1).\,}
+
+\newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
+
+\newcommand{\nfEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{nf}}{\simeq}}}
+%\newcommand{\neuEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{neu}}{\simeq}}}
+
+\newcommand{\norm}{\hookrightarrow}
+
+%%%%%%% GROUP: named inference rules
+
+% the style for rule names
+\newcommand{\rulename}[1]{\textnormal{\textsc{#1}}}
+
+% use \rref{...} to refer to a rule in text
+\newcommand{\rref}[1]{\hyperlink{rule:#1}{\rulename{#1}}}
+
+% the color of rule names
+\definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+\definecolor{presupColor}{rgb}{0,0,1}
+
+% named inference rule
+\newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Programming language techniques \\for proof assistants\\[2ex]Lecture 1\\ From declarative to algorithmic type theory}
+\author{Andrej Bauer\\University of Ljubljana}
+\date{}
+\begin{document}
+
+\begin{frame}
+\hbox{}\vfil
+
+\titlepage
+
+\vfil
+
+\begin{center}
+\footnotesize
+International School on Logical Frameworks and Proof Systems Interoperability \\
+Université Paris--Saclay, September 8--12, 2025
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Overview}
+
+  \begin{itemize}
+  \item Lecture 1: From declarative to algorithmic type theory
+    \begin{itemize}\footnotesize
+    \item A declarative presentation of type theory
+    \item Bidirectional type checking
+    \item Algorithmic equality checking
+    \end{itemize}
+  \item \pause
+    Lecture 2: A monadic type checker
+    \begin{itemize}\footnotesize
+    \item Parsing, bound variables and substitution
+    \item A monad for typing contexts
+    \item A monadic proof checker
+    \end{itemize}
+  \item \pause
+    Lecture 3: Holes and unification
+    \begin{itemize}\footnotesize
+    \item Postponed computations as holes
+    \item Unification
+    \item A holey type checker
+    \end{itemize}
+  \item \pause
+    Lecture 4: Variables as computational effects
+    \begin{itemize}\footnotesize
+    \item Algebraic operations and handlers
+    \item Holes as computational effects
+    \item A handler-based type checker
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 1
+
+    \bigskip
+
+    \Large
+    From declarative to algorithmic type theory
+  \end{center}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{What is a type theory?}
+
+  \begin{itemize}
+  \item A collection of inference rules
+  \item Quotient inductive inductive type (QIIT)
+  \item A closure system on a set of judgements
+  \item Second-order generalized algebraic theory (SOGAT)
+  \item A small representable map category
+  \end{itemize}
+
+  \note[item]{There are many views of what a type theory is, ranging syntactic to semantic ones. Each view enriches our understanding of type theory and has its uses.}
+  \note[item]{For implementation purposes, \emph{syntactic presentations} are a good starting point.}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Faux Type Theory -- syntax \& judgement forms}
+
+  Expressions:
+  %
+  \begin{align*}
+    t, u, A, B \mathrel{{:}{:}{=}}&\quad
+     x                       &&\text{variable} \\
+    &{\mid}\quad \Type           &&\text{universe} \\
+    &{\mid}\quad \prd{x \of A} B &&\text{product} && \text{($x$ bound in $B$)} \\
+    &{\mid}\quad t\,u            &&\text{application} \\
+    &{\mid}\quad \lam{x \of A} t &&\text{function} && \text{($x$ bound in $t$)} \\
+    &{\mid}\quad \letin{x}{t}{u} &&\text{local definition} && \text{($x$ bound in $u$)}
+  \end{align*}
+  %
+  \pause
+  %
+  Judgement forms:
+  %
+  \begin{tabbing}
+      $\Gamma \types t : A$ \qquad\qquad \= ``In context $\Gamma$, term $t$ has type $A$.'' \\
+      $\Gamma \types t \equiv_A u$ \> ``In context $\Gamma$, terms $t$ and $u$ of type $A$ are equal.''
+  \end{tabbing}
+  %
+  \pause
+  %
+  A context $\Gamma$ maps variables to their types and definitions, if any:
+  %
+  \begin{tabbing}
+    $x : A$ \qquad\qquad \= ``$x$ has type $A$''\\
+    $\ofLet{x}{t}{A}$ \> ``$x$ equals $t$ and has type $A$''
+  \end{tabbing}
+
+
+
+  \note[item]{We're going to work with a small type theory, called ``faux type theory'', that only has some basic features: a universe, dependent products, and local definitions.}
+
+  \note[item]{Textbook presentations of type theory often omit local definitions, since they can always be eliminated by substitution. However, working without them in practice would be cumbersome, so we include them to illustrate their implementation.}
+
+  \note[item]{The first judgement form asserts that a term $t$ has a type $A$ in context $\Gamma$.}
+
+  \note[item]{The second judgement form asserts terms $t$ and $u$ have type~$A$ and are equal. This is \emph{typed} equality. (Untyped equality would read just $\Gamma \types t = u$ without any type information. In principle, it would allow us to compare terms of different types.)}
+
+  \note[item]{A context $\Gamma$ holds information about variables. It always specifies the type of a variable, and optionally its definition (to be used in combination with local definitions).
+
+  We are not very precise about what a context really looks like here. Is it a list? A dictionary?
+  It does not matter much how it is represented, so long as it provides information about
+  variables.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Faux Type Theory -- terms and types}
+
+  \begin{mathpar}
+    \inferenceRule{Tm-Var}
+    {(x \of A) \in \Gamma}
+    {\Gamma \types x : A}
+
+    \pause
+    \\
+
+    \inferenceRule{Ty-Type}
+    {\hbox{}}
+    {\Gamma \types \Type : \Type}
+
+
+    \inferenceRule{Ty-Pi}
+    {\Gamma \types A : \Type \\
+     \Gamma, x \of A \types B : \Type}
+    {\Gamma \types \prd{x \of A} B : \Type}
+
+    \pause
+    \\
+
+    \inferenceRule{Tm-App}
+    {\Gamma \types t : \prd{x \of A} B
+      \\
+      \Gamma \types u : A
+    }{
+      \Gamma \types t\,u : B[u/x]
+    }
+
+    \inferenceRule{Tm-Lambda}
+    {\Gamma \types A : \Type \\
+      \Gamma, x \of A \types t : B
+    }{
+      \Gamma \types \lam{x \of A} t : \prd{x \of A} B
+    }
+
+    \pause
+    \\
+
+    \inferenceRule{Tm-Let}
+    {\Gamma \types t : A
+      \\
+      \Gamma, \ofLet{x}{t}{A} \types u : B
+    }{
+      \Gamma \types (\letin{x}{t}{u}) : B[t/x]
+    }
+  \end{mathpar}
+
+  \note[item]{Next, let us look at the rules of Faux Type Theory. The presentation given here is of the sort one usually finds in books and papers, namely as a collection of \emph{rules}.}
+
+  \note[item]{We are assuming you have seen such rules before. Briefly, a rule has a number of \emph{premises}, written above the line, and a \emph{conclusion} below the line. We give each rule a name, written in light gray.}
+
+  \note[item]{In the variable rule, the top line should be read as ``According to $\Gamma$, $x$ has type~$A$.''
+    In particular, $(x \of A) \in \Gamma$ holds also when $\Gamma$ stores a definition $\ofLet{x}{t}{A}$.}
+
+
+  \note[item]{Our type theory claims that $\Type$ is a $\Type$. This is one of the reasons for calling it ``faux'', because such a type theory is inconsistent in the sense that every type is inhabited. (Exercise: write down a term of type $\prd{A \of \Type} A$.) Nevertheless, such theories can still be useful as models of (partial) computation, and in fact our theory is Turing complete.}
+
+  \note[item]{An alternative to $\Type : \Type$ would be the introduction of a hierarchy of universes $\Type_0 : \Type_1 : \cdots$, or perhaps just $\Type : \mathsf{Kind}$. In the implementation, doing so would bring in additional complexity that we prefer to avoid. (Exercise: remove $\Type : \Type$.)}
+
+  \note[item]{Observe how the rule \rref{Tm-Let} stores a local definition in the context.}
+\end{frame}
+
+
+\begin{frame}
+
+  {\small
+  \begin{equation*}
+    \inferenceRule{Tm-App}
+    {\onslide<2->{\color{presupColor}{\Gamma \types A : \Type}} \\
+     \onslide<2->{\color{presupColor}{\Gamma, x \of A \types B : \Type}}
+     \\\\
+     \Gamma \types t : \prd{x \of A} B
+      \\
+      \Gamma \types u : A
+    }{
+      \Gamma \types t\,u : B[u/x]
+    }
+    \quad
+    \inferenceRule{Tm-Lambda}
+    {\onslide<2->{\color{presupColor}{\Gamma, x \of A \types B : \Type}}
+     \\\\
+     \Gamma \types A : \Type \\
+     \Gamma, x \of A \types t : B
+    }{
+      \Gamma \types \lam{x \of A} t : \prd{x \of A} B
+    }
+  \end{equation*}}
+
+  \begin{itemize}
+  \item<3-> \textbf{Presupposition theorem:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ then $\Gamma \types A : \Type$,
+    \item if $\Gamma \types t \equiv_A u$ then $\Gamma \types t : A$ and $\Gamma \types u : A$.
+    \end{itemize}
+  \item<4-> \textbf{Uniqueness of typing:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ and $\Gamma \types t : B$ then $\Gamma \types A \equiv_\Type B$.
+    \end{itemize}
+  \item<5-> \textbf{Weakening:}
+    \begin{itemize}\normalsize
+    \item if $\Gamma \types t : A$ and $\Gamma \subseteq \Delta$ then $\Delta \types t : A$.
+    \end{itemize}
+  \item<5-> \textbf{Strengthening:}
+    \begin{itemize}
+    \item if $\Delta \types t : A$ and $\Gamma \subseteq \Delta$ and $\mathsf{FV}(t) \subseteq |\Gamma|$ then $\Gamma \types t : A$.
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{Let us stop here to comment on how the rules are written. Let us compare the rules for application and
+    functions. Why does \rref{Tm-Lambda} check that $A$ is a type but \rref{Tm-App} does not? In fact, why are we not
+    checking that $B$ is a type in context $\Gamma, x \of A$?}
+  
+  \note[item]{If one were very pedantic, one would add additional premises, shown in blue.
+    These are called \emph{\color{presupColor}{presuppositions}} -- they ensure that the contexts and types appearing in other judgements are well-formed.}
+
+  \note[item]{It turns out that the presuppositions are redundant, because the rules on the previous slide satisfy
+    the \emph{Presuppositions theorem}, which says that the constituent parts of a derivable judgement are well-formed. (Note: we always assume that $\Gamma$ does not contain any ``garbage''. Exercise: make this idea precise and prove the Presuppositions theorem.)}
+
+  \note[item]{In implementation we prefer the \emph{economic} rules that omit presuppositions, so long as the
+    Presuppositions theorem is valid. Concretely, in \rref{Tm-App} this allows us to skip re-checking that $A$ and $B$
+    are well-formed types (apply the Presuppositions theorem to the premises).}
+
+  \note[item]{There are several other desirable meta-theorems that we shall rely on in the implementation.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Faux Type Theory -- equality}
+
+  \begin{mathpar}
+
+    \inferenceRule{Eq-Refl}
+    {\Gamma \types t : A}
+    {\Gamma \types t \equiv_A t}
+
+    \inferenceRule{Eq-Sym}
+    {\Gamma \types u \equiv_A t}
+    {\Gamma \types t \equiv_A t}
+
+    \inferenceRule{Eq-Tran}
+    {\Gamma \types s \equiv_A t \\
+     \Gamma \types t \equiv_A u}
+    {\Gamma \types s \equiv_A t}
+
+    \pause
+    \\
+
+    \inferenceRule{Eq-Conv}
+    {\Gamma \types t : A \\ \types A \equiv_\Type B}
+    {\Gamma \types t : B}
+
+    \pause
+
+    \inferenceRule{Eq-Def}
+    {(x \,{:}{=}\, t \of A) \in \Gamma}
+    {\Gamma \types x \equiv_A t}
+
+    \pause
+    \\
+
+    \inferenceRule{Eq-Comp}
+    {\Gamma \types A : \Type \\
+      \Gamma, x \of A \types t : B \\
+      \Gamma \types u : A
+    }{
+      \Gamma \types (\lam{x \of A} t)\,u \equiv_{B[u/x]} t[u/x]
+    }
+
+    \inferenceRule{Eq-Pi-Ext}
+    {\Gamma, x \of A \types t\,x \equiv_{B} u\,x : B}
+    {\Gamma \types t \equiv_{\prd{x \of A} B} u}
+
+    \pause
+
+    \inferenceRule{Eq-Let}
+    {
+      \Gamma \types t : A
+      \\
+      \Gamma, x \,{:}{=}\, t \of A \types u : B
+    }{
+      \Gamma \types (\letin{x}{t}{u}) \equiv_{B[t/x]} u[t/x]
+    }
+
+  \end{mathpar}
+
+  \note[item]{Let us proceed with equality rules. They come in several batches.}
+
+  \note[item]{The first one states that equality is an equivalence relation.}
+
+  \note[item]{The conversion rule \rref{Eq-Conv} states that a type may be replaced with an equal one.}
+
+  \note[item]{\rref{Eq-Def} states that a variable is equal to its definition. This is sometimes called a ``$\delta$-rule''.}
+
+  \note[item]{The most interesting are the rules for application and functions. \rref{Eq-Comp} is also known as ``$\beta$-rule'' and is a \emph{computation rule}. In the implementation it will be used to compute normal forms of terms. It has a clear left-to-right direction: the left-hand side serves as a \emph{pattern} against which we can match a term, if possible, and rewrite it to the right-hand-side.}
+
+  \note[item]{\rref{Eq-Ext} is an \emph{extensionality rule}. It does not have a direction, but we can tell that it should be used when we compare terms at a product type. (Exercise: show that in the presence of other rules, the extensionality rule is bi-direvable form the $\eta$-rule for function.)}.
+
+  \note[item]{Finally, there is a rule for local definitions which explains that a definition may be eliminated by substitution.}
+
+  \note[item]{We now have all the rules of Faux type theory. Do they indicate how to implement a proof checker? Not quite. It is not clear which rule to use in a given situation. For example, conversion \rref{Eq-Conv} can \emph{always} be applied, as well as reflexivity, symmetry and transitivity. We need to do something about this.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Bidirectional type checking}
+
+  Replace $\Gamma \types t : A$ with two judgements forms:
+  %
+  \begin{tabbing}
+      $\Gamma \types t \inferTy A$ \qquad\qquad \= ``In context $\Gamma$, infer that term $t$ has type $A$.'' \\
+      $\Gamma \types t \checkTy A$ \> ``In context $\Gamma$, check that term  $t$ has type $A$.''
+  \end{tabbing}
+  %
+  \pause
+  Desiderata:
+  %
+  \begin{itemize}
+  \item The rules should be \emph{deterministic} and \emph{syntax-driven}:
+    %
+    \begin{itemize}
+    \item at most one rule applies in any situation, and
+    \item the candidate rule is apparent from the syntax of~$t$.
+    \end{itemize}
+  \item \pause
+    \emph{Soundness} of bidirectional type-checking:
+    %
+    \begin{itemize}
+    \item if $\Gamma \types t \inferTy A$ then $\Gamma \types t : A$, and
+    \item if $\Gamma \types t \checkTy A$ then $\Gamma \types t : A$.
+    \end{itemize}
+  \item \emph{Completeness} of bidirectional type-checking:
+    %
+    \begin{itemize}
+    \item if $\Gamma \types t : A$ then $\Gamma \types t \checkTy A$.
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{If you look at the rules, some of allow us to \emph{infer} the type by looking at the term and the context (\rref{Tm-Var}, \rref{Ty-Type}, \rref{Ty-Pi}, \rref{Tm-Lambda}). In some situations, the type
+    is given and we must \emph{check} that the term has it (both premises of \rref{Ty-Pi}, second premise of \rref{Tm-App}).}
+
+  \note[item]{This gives us the idea to split the judgement $\Gamma \types t : A$ into two judgements.}
+  \note[item]{$\Gamma \types t \inferTy A$ \emph{infers} (computes, synthesizes) the type~$A$ of~$t$.}
+  \note[item]{$\Gamma \types t \checkTy A$ \emph{checks} that $t$ has the given type~$A$.}
+  \note[item]{The notation is suggestive:
+    %
+    \begin{itemize}
+    \item[] $t \inferTy A$ indicates that $t$ \emph{produces} the type~$A$
+    \item[] $t \checkTy A$ indicates that $t$ \emph{consumes} the type~$A$
+    \end{itemize}}
+  \note[item]{We aim to satisfy certain requirements.}
+  \note[item]{The bidirectional rules should be deterministic so that they can serve as the basis of an efficient algorithm (that does not have to perform excessive amounts of backtracking).}
+  \note[item]{The bidirectional rules should be syntax-driven, i.e., which rule to use should be clear from the syntax of expressions.}
+  \note[item]{We require soundness and completeness to ensure that the declarative and bidirectional rules present the same type theory.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Bidirectional Faux type theory -- rules I}
+
+  \begin{mathpar}
+
+   \inferenceRule{Infer-Var}
+   {(x \of A) \in \Gamma}
+   {\Gamma \types x \inferTy A}
+
+   \inferenceRule{Infer-Type}
+   {\hbox{}}
+   {\Gamma \types \Type \inferTy \Type}
+
+   \inferenceRule{Infer-Pi}
+   {\Gamma \types A \checkTy \Type \\
+    \Gamma, x \of A \types B \checkTy \Type}
+   {\Gamma \types \prd{x \of A} B \inferTy \Type}
+
+   \\\\
+
+   \inferenceRule{Infer-App}
+   {
+     \Gamma \types t \inferTy \prd{x \of A} B \\
+     \Gamma \types u \checkTy A
+   }{
+     \Gamma \types t\,u \inferTy B[u/x]
+   }
+
+   \inferenceRule{Infer-Lambda}
+   {
+     \Gamma \types A \checkTy \Type \\
+     \Gamma, x \of A \types t \inferTy B
+   }{
+     \Gamma \types \lam{x \of A} t \inferTy \prd{x \of A} B
+   }
+
+ \note[item]{We already observed that some rules want to be inferring.}
+ 
+ \note[item]{Notice how in some of the premises we switch to checking rules. There is going to be an interplay between
+   the two kinds of rules.}
+
+  %  \pause
+
+  %  \inferenceRule{Infer-Ascribe}
+  %  {
+  %    \Gamma \types A \checkTy \Type \\
+  %    \Gamma \types t \checkTy A
+  %  }{
+  %    \Gamma \types (t : A) \inferTy A
+  % }
+  \end{mathpar}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Bidirectional Faux type theory -- rules II}
+  Let-binding is direction-agnostic:
+  %
+  \begin{gather*}
+   \inferenceRule{Infer-Let}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma, \ofLet{x}{t}{A} \types u \inferTy B
+   }{
+     \Gamma \types (\letin{x}{t}{u}) \inferTy B(t)
+   }
+   \\[1ex]
+   \inferenceRule{Check-Let}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma, \ofLet{x}{t}{A} \types u \checkTy B
+   }{
+     \Gamma \types (\letin{x}{t}{u}) \checkTy B
+   }
+  \end{gather*}
+  %
+  \pause
+  There is a rule for switching from checking to inference:
+  %
+  \begin{equation*}
+   \inferenceRule{Infer-Check}
+   {
+     \Gamma \types t \inferTy A \\
+     \Gamma \types A \equiv_\Type B
+   }{
+     \Gamma \types t \checkTy B
+  }
+  \end{equation*}
+  %
+  Note: this is the \emph{only} rule in which equality applies.
+
+  \note[item]{Local definitions are agnostic, the inferring or checking simply passes through them.}
+
+  \note[item]{The rule \rref{Infer-Check} serves as an interface between the checking and inferring mode. It is used when we are asked to check a term that wants its type to be inferred. This is the only rule that mentions equality. In contrast to \rref{Eq-Conv}, it can be used in only one situation: when we're trying to check an inferring term.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Algorithmic equality checking}
+
+  Algorithmic checking of $\Gamma \types t \equiv_A u$:
+  %
+  \begin{itemize}
+  \item \emph{type-directed phase}: apply extensionality rules for~$A$, if any,
+  \item \emph{normalization phase}: normalize $t$ and $u$ and compare the normal forms.
+  \end{itemize}
+  %
+  \pause
+  Judgement forms:
+  %
+  \begin{tabbing}
+    $\Gamma \types t \norm u$ \qquad\quad \= ``term $t$ normalizes to $u$'' \\
+    $\Gamma \types t \simeq_A u$ \> ``terms $t$ and $u$ of type $A$ are equal'' \\
+    $\Gamma \types t \nfEquiv u$ \> ``normal terms $t$ and $u$ are equal''
+  \end{tabbing}
+
+  \note[item]{Next, we proceed with turning the equality rules into algorithmic form.}
+
+  \note[item]{We are going to use an equality-checking algorithm that has two phases. (Many implementations have only
+    the normalization phase, and so they incorporate $\eta$-rules instead of extensionality rules.)}
+
+  \note[item]{Now there are three auxiliary judgement forms: normalization (also called conversion and computation),
+    typed equality of general terms, and untyped equality of normalized terms.}
+
+  \note[item]{Exercise: state soundness and completeness of algorithmic type-checking with respect to declarative
+  judgemental equality.}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Normalization}
+
+  \small
+  \begin{mathpar}
+
+    \inferenceRule{Norm-Type}
+    {\hbox{}}
+    {\Gamma \types \Type \norm \Type}
+
+    \inferenceRule{Norm-Pi}
+    {\hbox{}}
+    {\Gamma \types \prd{x \of A} B \norm \prd{x \of A} B}
+
+    \inferenceRule{Norm-Lambda}
+    {\hbox{}}
+    {\Gamma \types \lam{x \of A} t \norm \lam{x \of A} t}
+
+    \inferenceRule{Norm-Var-Neut}
+    {
+      (x \of A) \in \Gamma
+      \\
+      (\ofLet{x}{\_}{\_}) \not\in \Gamma
+    }{
+      \Gamma \types x \norm x
+    }
+
+   \pause
+   \\
+
+   \inferenceRule{Norm-Var-Def}
+    {
+      (\ofLet{x}{t}{A}) \in \Gamma \\
+      \Gamma \types t \norm u
+    }{
+      \Gamma \types x \norm u
+    }
+
+
+    \inferenceRule{Norm-Let}
+    {
+      \Gamma \types t[u/x] \norm v
+    }{
+      \Gamma \types (\letin{x}{u}{t}) \norm v
+    }
+
+
+    \inferenceRule{Norm-App-Comp}
+    {
+      \Gamma \types t \norm \lam{x \of A} t' \\
+      \Gamma \types t'[u/x] \norm v
+    }{
+      \Gamma \types t \, u \norm v
+    }
+
+    \inferenceRule{Norm-App-Neut}
+    {
+      \Gamma \types t \norm t' \neq \lam{\_\of\_} \_
+    }{
+      \Gamma \types t \, u \norm t' \, u
+    }
+
+  \end{mathpar}
+
+  \note[item]{Let us first deal with normalization. In programming language theory we would call
+    such rules \emph{big-step operational semantics} and the normal forms \emph{values}.}
+
+  \note[item]{The universe, products, and functions are normal, and so is a variable without a definition.}
+
+  \note[item]{Variables with definitions and local definitions always make a normalization step. Application
+    makes a step when a function is applied.}
+
+  \note[item]{These rules employ a \emph{lazy} evaluation strategy: in \rref{Norm-Let} and \rref{Norm-App-Comp} the
+    term~$u$ is substituted directly, without being evaluated first. This is a source of possible inefficiency: if $u$
+    is duplicated it may be normalized twice. Haskell-style lazy languages avoid such problems by employing the
+    \emph{call-by-need} strategy.}
+
+  \note[item]{What do the normal expressions (outputs of $\norm$) look like?}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Weak head-normal forms}
+
+  Normal expression:
+  %
+  \begin{align*}
+    n \mathrel{{:}{:}{=}}&\quad
+     x                           &&\text{variable} \\
+    &{\mid}\quad \Type           &&\text{universe} \\
+    &{\mid}\quad \prd{x \of A} B &&\text{product} \\
+    &{\mid}\quad \lam{x \of A} t &&\text{function} \\
+    &{\mid}\quad n\,t            &&\text{spine}
+  \end{align*}
+  %
+  \pause
+  Desideratum:
+  %
+  \begin{itemize}
+  \item \textbf{Preservation Lemma:}
+    \begin{itemize}\normalsize
+    \item If $\Gamma \types t : A$ and $\Gamma \types t \norm u$ then $\Gamma \types u : A$.
+    \end{itemize}
+  \item \textbf{Progress Lemma:}
+    \begin{itemize}
+    \item If $\Gamma \types t : A$ then there exists (a unique) normal $u$ such that $\Gamma \types t \norm u$.
+    \end{itemize}
+  \end{itemize}
+
+
+  \note[item]{Normalization outputs one of the normal expressions.}
+
+  \note[item]{Not every normal expression makes sense, for instance $\Type \, x \, y$. (Exercise: prove that $\Type \, x \, y$ does not have a type.) However, if we normalize an expression that does have a type, we should get a normal one that has the same type.}
+
+  \note[item]{The stated property is akin to the so-called Preservation lemma from programming language theory,
+    which states that evaluation preserves typing.}
+
+  \note[item]{Preservation is accompanied by the Progress lemma, which states that evaluation does not get stuck. Together they form the Safety Theorem, ``If a term has a type then it normalizes.'' In programming language terminology it says that type-checked programs are safe to run (they do not crash).}
+
+\end{frame}
+
+\begin{frame}
+  \begin{mathpar}
+    \inferenceRule{EqExt-Pi}
+    {\Gamma \types A \norm \prd{x \of B} C \\
+      \Gamma, x \of B \types t\,x \simeq_{C} u\,x
+    }{
+      \Gamma \types t \simeq_A u
+    }
+
+    \inferenceRule{EqExt-EqNf}
+    { \Gamma \types A \norm \_ \neq \prd{\_} \_ \\
+      \Gamma \types t \norm t' \\
+      \Gamma \types u \norm u' \\
+      \Gamma \types t' \nfEquiv u'
+    }{
+      \Gamma \types t \simeq_A u
+    }
+
+    \pause
+    \\
+
+    \inferenceRule{EqNf-Type}
+    {
+    }{
+      \Gamma \types \Type \nfEquiv \Type
+    }
+
+    \inferenceRule{EqNf-Pi}
+    {
+      \Gamma \types A \simeq_{\Type} C \\
+      \Gamma, x \of A \types B \simeq_{\Type} D
+    }{
+      \Gamma \types \prd{x \of A} B \nfEquiv \prd{x \of C} D
+    }
+
+    \inferenceRule{EqNf-Spine}
+    {(x \of A) \in \Gamma \\\\
+     \Gamma \types A \norm \prd{x_1 \of  A_1} \cdots \prd{x_n \of A_n} B \\\\
+     \Gamma \types t_i \simeq_{A_i[t_1/x_1, \ldots, t_{i-1}/x_{i-1}]} u_i \quad\text{for $i = 1, \ldots, n$}
+    }{
+      \Gamma \types x \, t_1 \cdots t_n \nfEquiv x \, u_1 \cdots u_n
+    }
+  \end{mathpar}
+
+  \note[item]{Here finally are the equality rules. The typed equality is the ``extensionality'' phase.
+    It applies the extensionality rule \rref{Eq-Pi-Ext} if possible, otherwise it proceeds to the
+    normalization phase.}
+
+  \note[item]{The normalization phase compares terms structurally. Note that the premises refer back to typed equality. It is important that it be able to reconstruct the types at which to compare the sub-terms.}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Exercises}
+
+  \begin{enumerate}
+  \item Find someone to work with.
+  \item Write down the rules for the unit type.
+  \item Write down the rules for dependent sums.
+  \item Install the implementation of Faux Type Theory from \url{https://github.com/andrejbauer/faux-type-theory}.
+  \item Use the implementation to derive $\prd{A \of \Type} A$.
+  \end{enumerate}
+
+  \note[item]{Here are some exercises for you to work on. Find a partner or a small group and do them together. If you do not know anyone, ask the person sitting next to you if they'd like to work together.}
+  \note[item]{When writing down the rules, do not forget about equality rules, and write down both the declarative and bidirectional versions.}
+  \note[item]{I am of course available for any questions you might have, in person and on Zulip.}
+  \note[item]{Please show me your solutions---that's important feedback for me.}
+
+\end{frame}
+
+\end{document}
