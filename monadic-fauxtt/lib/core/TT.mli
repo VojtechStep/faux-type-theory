@@ -12,7 +12,7 @@ type tm =
 (** Types *)
 and ty = Ty of tm
 
-(** Variagble *)
+(** Variabble *)
 and var = tm Bindlib.var
 
 (** An entity with one bound variable *)

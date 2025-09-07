@@ -177,7 +177,7 @@ and toplevel' ~quiet ctx = function
 
   | ISyntax.TopEval e ->
      let e, ty = Context.run ctx (infer e) in
-     let e = Context.run ctx (Norm.norm_tm ~strategy:Norm.CBV e) in
+     let e = Context.run ctx (Norm.eval_tm e) in
      Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
        (Print.tm ~penv:(Context.penv ctx) e)
        (Print.ty ~penv:(Context.penv ctx) ty) ;

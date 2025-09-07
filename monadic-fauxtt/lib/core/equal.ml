@@ -18,10 +18,10 @@ let rec equal_tm_at e1 e2 ty =
   return (e1 == e2) |||
   begin
     (* The type directed phase *)
-    let* TT.Ty ty' = Norm.norm_ty ~strategy:WHNF ty in
+    let* Norm.Ty ty' = Norm.norm_ty ty in
     match  ty' with
 
-    | TT.Prod (t, u) ->
+    | Norm.Prod (t, u) ->
        (* Apply function extensionality. *)
        let (x, u) = TT.unbind u in
        Context.with_var x t
@@ -29,83 +29,62 @@ let rec equal_tm_at e1 e2 ty =
           and e2 = TT.(Apply (e2, Var x)) in
           equal_tm_at e1 e2 u)
 
-    | TT.(Var _ | Type | Apply _) ->
+    | Norm.(Spine _ | Type) ->
        (* Type-directed phase is done, we compare normal forms. *)
        equal_tm e1 e2
 
-    | TT.(Lambda _ | Let _) ->
+    | Norm.(Lambda _) ->
       (* A type should never normalize to an abstraction or a let-binding *)
       assert false
   end
 
 (** Structurally compare weak head-normal forms of terms [e1] and [e2]. *)
 and equal_tm e1 e2 =
-  let* e1 = Norm.norm_tm ~strategy:Norm.WHNF e1 in
-  let* e2 = Norm.norm_tm ~strategy:Norm.WHNF e2 in
+  let* e1 = Norm.norm_tm e1 in
+  let* e2 = Norm.norm_tm e2 in
   match e1, e2 with
 
-  | TT.Type, TT.Type ->
+  | Norm.Type, Norm.Type ->
      return true
 
-  | TT.Prod (t1, u1), TT.Prod (t2, u2)  ->
+  | Norm.Prod (t1, u1), Norm.Prod (t2, u2)  ->
     equal_ty t1 t2 &&&
     begin
       let (x, u1, u2) = Bindlib.unbind2 u1 u2 in
       Context.with_var x t1 (equal_ty u1 u2)
     end
 
-  | TT.Lambda _, TT.Lambda _  ->
+  | Norm.Lambda _, Norm.Lambda _  ->
     (* We should never have to compare two lambdas, as that would mean that the
        type-directed phase did not figure out that these have product types. *)
     assert false
 
-  | TT.Let _, _ | _, TT.Let _ ->
-     assert false
+  | Norm.Spine (x1, es1), Norm.Spine (x2, es2) ->
+     equal_spine x1 es1 x2 es2
 
-  | TT.(Var _ | Apply _), TT.(Var _ | Apply _) ->
-     begin
-       equal_neutral e1 e2 >>= function
-       | None -> return false
-       | Some _ -> return true
-     end
-
-  | TT.(Var _ | Type | Prod _ | Lambda _ | Apply _), _ ->
+  | Norm.(Type | Prod _ | Lambda _ | Spine _), _ ->
     return false
 
-and equal_neutral e1 e2 =
-  match e1, e2 with
+and equal_spine x1 es1 x2 es2 =
+  let rec fold t es1 es2 =
+    match es1, es2 with
+    | [], [] -> return true
 
-  | TT.Var x, TT.Var y ->
-     if Bindlib.eq_vars x y then
-       let* (_, t) = Context.lookup_var x in
-       return (Some t)
-     else
-       return None
+    | ([], _::_) | (_::_, []) -> return false
 
-  | TT.Apply (e1, e1'), TT.Apply (e2, e2') ->
+    | e1 :: es1, e2 :: es2 ->
        begin
-         equal_neutral e1 e2 >>= function
-         | None -> return None
-         | Some t ->
-            begin
-              Norm.as_prod t >>= function
-              | None -> return None
-              | Some (t, u) ->
-                 begin
-                   equal_tm_at e1' e2' t >>= function
-                   | false -> return None
-                   | true -> return @@ Some (Bindlib.subst u e1')
-                 end
-
-            end
+         Norm.as_prod t >>= function
+         | None -> return false
+         | Some (t, u) -> (equal_tm_at e1 e2 t) &&& (fold (Bindlib.subst u e1) es1 es2)
        end
+  in
 
-  | TT.(Var _ | Apply _), _
-  | _, TT.(Var _ | Apply _) ->
-     return None
-
-  | TT.(Type | Prod _ | Lambda _ | Let _), _ ->
-     assert false
+  (return @@ Bindlib.eq_vars x1 x2) &&&
+  begin
+    let* (_, t) = Context.lookup_var x1 in
+    fold t es1 es2
+  end
 
 (** Compare two types. *)
 and equal_ty (TT.Ty ty1) (TT.Ty ty2) =
