@@ -1,2 +1,5 @@
-lectures/PL-for-proof-assistants.pdf
+_build
+slides/*.pdf
+*.exe
+
 
