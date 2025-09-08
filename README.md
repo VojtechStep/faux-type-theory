@@ -12,7 +12,9 @@ We study **Faux type theory**, a small type theory with a universe containing it
 definitions. We present the theory in traditional declarative style. We then reformulate it to obtain an algorithmic
 presentation suitable for implementation.
 
-Material: **Slides**
+Material:
+
+* **[Slides with speaker notes](./slides/PL-for-PA-lecture-1-handout.pdf)**
 
 ## Lecture 2: A monadic type checker
 
