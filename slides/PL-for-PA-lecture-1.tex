@@ -1,4 +1,4 @@
-\documentclass[handout,11pt,aspectratio=169]{beamer}
+\documentclass[11pt,aspectratio=169]{beamer}
 % Add the "handout" option in the line above to generate the version without overlays.
 
 \usepackage[T1]{fontenc}
@@ -352,7 +352,7 @@ Université Paris--Saclay, September 8--12, 2025
     \end{itemize}
   \item<5-> \textbf{Strengthening:}
     \begin{itemize}
-    \item if $\Delta \types t : A$ and $\Gamma \subseteq \Delta$ and $\mathsf{FV}(t) \subseteq |\Gamma|$ then $\Gamma \types t : A$.
+    \item if $\Delta \types t : A$ and $\Gamma \subseteq \Delta$ and $\mathsf{FV}(t : A) \subseteq |\Gamma|$ then $\Gamma \types t : A$.
     \end{itemize}
   \end{itemize}
 
@@ -388,18 +388,19 @@ Université Paris--Saclay, September 8--12, 2025
 
     \inferenceRule{Eq-Sym}
     {\Gamma \types u \equiv_A t}
-    {\Gamma \types t \equiv_A t}
+    {\Gamma \types t \equiv_A u}
 
     \inferenceRule{Eq-Tran}
     {\Gamma \types s \equiv_A t \\
      \Gamma \types t \equiv_A u}
-    {\Gamma \types s \equiv_A t}
+    {\Gamma \types s \equiv_A u}
 
     \pause
     \\
 
     \inferenceRule{Eq-Conv}
-    {\Gamma \types t : A \\ \types A \equiv_\Type B}
+    {\Gamma \types t : A \\
+     \Gamma \types A \equiv_\Type B}
     {\Gamma \types t : B}
 
     \pause
@@ -574,7 +575,7 @@ Université Paris--Saclay, September 8--12, 2025
      \Gamma \types t \inferTy A \\
      \Gamma, \ofLet{x}{t}{A} \types u \inferTy B
    }{
-     \Gamma \types (\letin{x}{t}{u}) \inferTy B(t)
+     \Gamma \types (\letin{x}{t}{u}) \inferTy B[t/x]
    }
    \\[1ex]
    \inferenceRule{Check-Let}
@@ -729,11 +730,11 @@ Université Paris--Saclay, September 8--12, 2025
   %
   \begin{align*}
     n \mathrel{{:}{:}{=}}&\quad
-     x                           &&\text{variable} \\
-    &{\mid}\quad \Type           &&\text{universe} \\
-    &{\mid}\quad \prd{x \of A} B &&\text{product} \\
-    &{\mid}\quad \lam{x \of A} t &&\text{function} \\
-    &{\mid}\quad n\,t            &&\text{spine}
+     x                             &&\text{variable} \\
+    &{\mid}\quad \Type             &&\text{universe} \\
+    &{\mid}\quad \prd{x \of A} B   &&\text{product} \\
+    &{\mid}\quad \lam{x \of A} t   &&\text{function} \\
+    &{\mid}\quad x\,t_1 \cdots t_n &&\text{spine}
   \end{align*}
   %
   \pause
