@@ -1,0 +1,20 @@
+(* Check that function extensionality holds. *)
+
+axiom A : Type
+axiom P : (A → A) → Type
+axiom f : A → A
+
+def id := λ (A : Type) (x : A) ⇒ x
+
+(** Function composition. *)
+def compose := λ (A B C : Type) (g : B → C) (f : A → B) (x : A) => g (f x)
+
+axiom u : P f
+
+infer u : P f
+
+infer u : P (id (A → A) f)
+
+infer u : P (compose A A A (id A) f)
+  
+

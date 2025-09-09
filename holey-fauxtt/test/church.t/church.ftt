@@ -1,0 +1,37 @@
+(* Church numerals *)
+
+def numeral := ∏ (A : Type), (A → A) → (A → A)
+
+eval numeral
+
+def zero : numeral := (λ (A : Type) (f : A → A) (x : A) ⇒ x)
+
+def succ : numeral → numeral :=
+  (λ (n : numeral) (A : Type) (f : A → A) (x : A) ⇒ f (n A f x))
+
+def one : numeral := succ zero
+
+def two : numeral := succ one
+
+def three : numeral := (λ (A : Type) (f : A → A) (x : A) ⇒ f (f (f x)))
+
+def five := succ (succ (succ (succ (succ zero))))
+
+def ( + ) : numeral → numeral → numeral :=
+  (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A f (n A f x))
+  
+def ( * ) : numeral → numeral → numeral :=
+  (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A (n A f) x)
+  
+def ten := five + five
+
+def hundred := ten * ten
+
+def thousand := hundred * ten
+
+(* A trick to see the numerals *)
+axiom N : Type
+axiom Z : N
+axiom S : N → N
+
+eval (thousand N S Z)
