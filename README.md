@@ -18,6 +18,14 @@ Material:
 
 ## Lecture 2: A monadic type checker
 
+We implement Faux type theory in OCaml. We use external libraries for parsing and management of bound variables.
+The core type checker uses *monadic-style* implementaion that encapsulates the context in a reader monad.
+
+Material:
+
+* **[Slides with speaker notes](./slides/PL-for-PA-lecture-2-handout.pdf)**
+* **Implementation:** [`monadic-fauxtt`](https://github.com/andrejbauer/faux-type-theory/tree/main/monadic-fauxtt)
+
 ## Lecture 3: Holes and unification
 
 ## Lecture 4: Variables as computational effects
