@@ -24,7 +24,7 @@ The core type checker uses *monadic-style* implementaion that encapsulates the c
 Material:
 
 * **[Slides with speaker notes](./slides/PL-for-PA-lecture-2-handout.pdf)**
-* **Implementation:** [`monadic-fauxtt`](https://github.com/andrejbauer/faux-type-theory/tree/main/monadic-fauxtt)
+* **Implementation:** [`monadic-fauxtt`](./monadic-fauxtt)
 
 ## Lecture 3: Holes and unification
 
