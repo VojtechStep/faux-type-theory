@@ -1,4 +1,4 @@
-\documentclass[10pt]{beamer}
+\documentclass[10pt,aspectratio=169]{beamer}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -7,14 +7,20 @@
 \usepackage{xypic}
 \usepackage{upgreek}
 \usepackage{graphicx}
-\usepackage{hyperref}
 \usepackage{mathpartir}
+\usepackage{listings}
 
 \usepackage{palatino}
 % \usepackage{xypic}
 \usepackage{txfonts}
 %\usepackage[llbracket,rrbracket]{stmaryrd}
-\usepackage{pgfpages}
+%\usepackage{pgfpages}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
 
 \mode<presentation>
 % \Usetheme{Goettingen}
@@ -31,10 +37,58 @@
 
 %\setbeameroption{hide notes} % Only slides
 %\setbeameroption{show only notes} % Only notes
-\setbeameroption{show notes on second screen=right} % Both
+\setbeameroption{show notes on second screen} % Both
 
 % Give a slight yellow tint to the notes page
 \setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+\lstdefinelanguage{fauxtt}{
+  keywords={axiom,check,def,eval,load},
+  sensitive=true,
+  morestring=[b]" % strings in double quotes
+}
+
+\lstdefinestyle{fauxttstyle}{
+  language=fauxtt,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true,
+  literate={Π}{{$\Uppi$}}1
+           {∏}{{$\Uppi$}}1
+           {λ}{{$\lambda$}}1
+           {→}{{$\to$}}1
+           {⇒}{{$\Rightarrow$}}1
+}
+
+\lstnewenvironment{fauxttlisting}
+  {\lstset{style=fauxttstyle}}
+  {}
+
+\lstdefinelanguage{OCaml}{
+  keywords={let, in, rec, type, match, with, function, module, open, fun, and, as, if, then, else, val, exception, try, of, mutable},
+  sensitive=true,
+  comment=[s]{(*}{*)},
+  morestring=[b]",
+}
+
+\lstdefinestyle{ocamlstyle}{
+  language=OCaml,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true
+}
+
+\lstnewenvironment{ocamllisting}
+  {\lstset{style=ocamlstyle}}
+  {}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% MACROS
@@ -78,12 +132,15 @@
 \newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
 
 
+\newcommand{\codeRef}[1]{\href{https://github.com/andrejbauer/faux-type-theory/blob/main/monadic-fauxtt/#1}{\texttt{#1}}}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \title{Programming language techniques \\for proof assistants\\[2ex]Lecture 2\\A monadic type checker}
 \author{Andrej Bauer\\University of Ljubljana}
 \date{}
 \begin{document}
+
 
 \begin{frame}
 \hbox{}\vfil
@@ -99,7 +156,6 @@ Université Paris--Saclay, September 8--12, 2025
 \end{center}
 
 \end{frame}
-
 
 \begin{frame}
   \frametitle{Overview}
@@ -118,6 +174,12 @@ Université Paris--Saclay, September 8--12, 2025
   \item
     \textcolor{grayoutColor}{Lecture 4: Variables as computational effects}
   \end{itemize}
+
+  \note[item]{In today's lecture we're going to implement Faux Type Theory. Our goal is a small reference implementation
+    that showcases technique. At the same time, we do want it to be reasonably useful and reasonably fast.}
+
+  \note[item]{We have no desire to implement everything from scratch. We will use parsing tools and other libraries when appropriate. Our focus is on transcribing the core type-checking and equality-checking algorithms in a principled manner.}
+
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -133,44 +195,387 @@ Université Paris--Saclay, September 8--12, 2025
   \end{center}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Recap}
-\end{frame}
-
 
 \begin{frame}
   \frametitle{Components of a proof checker}
+
+  \begin{itemize}
+  \item Parser:
+    \begin{itemize}
+    \item lexer: split the input string into a sequence of tokens
+    \item parser: convert a sequence of tokens into a syntax tree
+    \end{itemize}
+  \item Core:
+    \begin{itemize}
+    \item inference \& checking modes
+    \item normalization
+    \item equality
+    \end{itemize}
+  \item Top level:
+    \begin{itemize}
+    \item Command-line arguments
+    \item Top level commands
+    \item REPL (Read--Evaluate--Print--Loop)
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{Our proof checker has three main parts: a parser, a type checker, and a top level. We shall discuss each component separately.}
+
+  \note[item]{To be quite honest, this view is a bit outdated. We should also have a language server protocol (LSP) for interaction with an editor.}
+
 \end{frame}
 
 \begin{frame}
-  \frametitle{OCaml?}
+  \frametitle{Data types}
+
+  \begin{itemize}
+  \item Input strings
+  \item Tokens
+  \item Input syntax trees:
+    \begin{itemize}
+    \item record file locations (for error reporting)
+    \item variables are strings
+    \end{itemize}
+  \item Internal terms and types:
+    \begin{itemize}
+    \item no locations
+    \item support bound variables and substitution
+    \end{itemize}
+  \item Context:
+    \begin{itemize}
+    \item map concrete variable names (strings) to abstract variables (\texttt{Bindlib.var})
+    \item map abstract variables to their types and optional definitions
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{We can frame the task also in terms of data types that will drive the development.}
+
+  \note[item]{Parsing takes an input string, breaks it up into tokens, and produces a concrete syntax tree.
+    They're ``concrete'' in the sense that the variable names are still just strings, and that they tree
+    faithfully captures the concrete input syntax.
+
+    Strings are predefined, token will be managed by the parser generator tools, but we do have to define our
+    own syntax trees. We want such trees to store file locations so that error reporting can tell the user
+    where the error is.}
+
+  \note[item]{The type checker will convert input syntax trees to internal terms and types. These are different from the input syntax trees:
+    %
+    \begin{itemize}
+    \item they do not record locations: they have already been checked ans so  cannot be the source of an error
+    \item they have to properly handle bound variables and support substitution
+    \item they capture the underlying type theory, not user input
+    \end{itemize}
+  }
+
+  \note[item]{We also need a datatype representing a typing context. We shall split it into maps.
+    The first one is used to map variables as strings to abstract variables as represented by \texttt{Bindlib} (a home-made implementation might map then to de Bruijn indices). The second one maps abstract variables to their types and optional definitions.}
+
+  \note[item]{There may be other auxiliary datatypes of course, for example, one that represents top-level commands.}
+
+\end{frame}
+
+
+
+
+\begin{frame}
+  \frametitle{Implementation language -- OCaml}
+
+  \begin{itemize}
+  \item Why OCaml?
+    \begin{itemize}
+    \item We are in France.
+    \item Rocq, Dedukti, Lambdapi, etc., are implemented in OCaml.
+    \end{itemize}
+  \item Developer environment:
+    \begin{itemize}
+    \item \href{https://opam.ocaml.org}{OPAM} -- OCaml Package Manager
+    \item \href{https://dune.build}{Dune} -- a composable build system for OCaml
+    \end{itemize}
+  \item Libraries:
+    %
+    \begin{itemize}
+    \item \href{https://github.com/ocaml-community/sedlex}{\texttt{sedlex}} --
+      Unicode-friendly lexer generator
+    \item \href{https://gallium.inria.fr/~fpottier/menhir/}{\texttt{menhir}} --
+      LR(1) parser generator
+    \item \href{https://github.com/rlepigre/ocaml-bindlib}{\texttt{bindlib}} --
+      manipulation of data structures with bound variables
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{We shall implement the proof checker in OCaml.}
+
+  \note[item]{Of course, we could use a number of other languages, but OCaml is certainly a good choice. Real proof
+    assistants are implemented in it. It has good development environment, and there are libraries that will take care
+    of standard tasks, such as parsing and manipulation of bound variables.}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Parsing}
+
+  \begin{itemize}
+  \item Lexical analysis:
+    %
+    \begin{itemize}
+    \item Break up the input string into \emph{lexemes} (substrings) and map them to \emph{tokens}.
+    \item \codeRef{lib/parsing/lexer.ml} -- lexemes are specified by regular expressions
+    \item \codeRef{lib/parsing/parser.mly} -- tokens are specified at the beginning
+    \end{itemize}
+  \item \pause Parsing:
+    %
+    \begin{itemize}
+    \item \codeRef{lib/parsing/parser.mly} -- the grammar generates syntax trees (with file locations)
+    \item \codeRef{lib/parsing/syntax.ml} -- the type of syntax trees:
+\begin{ocamllisting}
+type tm = tm' Location.t
+and tm' =
+  | Var of string
+  | Let of string * tm * tm
+  | Type
+  | Prod of (string * ty) * ty
+  | Lambda of (string * ty option) * tm
+  | Apply of tm * tm
+  | Ascribe of tm * ty
+and ty = tm
+\end{ocamllisting}
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{Let us proceed to the first part, which is parsing. This is to be considered a ``solved problem''.}
+  \note[item]{Briefly, the task is to convert an input string to a syntax tree, which is done in two phases.}
+  \note[item]{Lexical analysis breaks up the string into separate \emph{lexemes}, small pieces of text such as keywords, punctuation marks, and numerals. Lexemes are mapped to \emph{tokens}, which are just a more abstract
+    representation of lexemes.}
+  \note[item]{Parsing takes a sequence of lexemes and converts them to a syntax tree, following the rules of a formal grammar.}
+  \note[item]{We are not going to do all this by hand (although I recommend that you do it once, and then never again),
+    but rather use the Sedlex lexer and Menhir parser generator. We do not have the time to go into the technical details here, but feel free to ask me about them later.}
+  \note[item]{For us, the interesting part is the datatype of input syntax trees, shown here. Notes:
+    %
+    \begin{itemize}
+    \item The datatype of input terms \lstinline{tm} is wrapped by a utility datatype \lstinline{Location.t}
+      which stores file locations. The parser adds the locations during parsing.
+    \item There is no difference between terms \lstinline{tm} and types \lstinline{ty}, as there are no
+      syntactic markers that could be used to tell them apart.
+    \item Variables are strings, directly provided by the parser.
+    \item As a convenience for the user, we allow $\lambda$-abstractions without type annotations.
+      The target type theory still has typed $\lambda$-abstractions, so the type checker will have to
+      supply missing types.
+    \item We added \emph{type ascription}, which allows the user to specify a type. Its effect is to
+      switch to checking mode. (Exercise: write down the rules of type ascription.)
+    \end{itemize}
+  }
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Internal terms and types}
+
+  \begin{itemize}
+  \item \codeRef{lib/core/TT.ml}:
+\begin{ocamllisting}
+type tm =
+  | Var of var
+  | Let of tm * ty * tm binder
+  | Type
+  | Prod of ty * ty binder
+  | Lambda of ty * tm binder
+  | Apply of tm * tm
+
+and ty = Ty of tm
+
+and var = tm Bindlib.var
+
+and 'a binder = (tm, 'a) Bindlib.binder
+\end{ocamllisting}
+  \end{itemize}
+
+  \note[item]{The internal terms and types will be produced by the type checker. They are similar to the input syntax trees, but now the same.}
+
+  \note[item]{There are no file locations anymore. We have no use for them, because checked terms and types cannot be the source of an error. The user is the only source of errors.}
+
+  \note[item]{Note that local definitions store the type of the local variable. (Exercise: find out where this type is used in the code, and you will understand why we are recording it.)}
+
+  \note[item]{We use Bindlib's variables. We do \emph{not} want to know how they work, only that they work and that they deal with the intricacies of bound variables and substitution. One does have to read the Bindlib documentation to learn how to use it, but this is time well spent. I guarantee you that it takes less time to learn how to use Bindlib than it does to debug a home-made implementation of de Bruijn indices. I know, I tried several times.}
+
+  \note[item]{If a term or a type binds a variable, it should be wrapped by \lstinline{Bindlib.binder}.}
+
+  \note[item]{We make terms \lstinline{tm} and types \lstinline{ty} formally different by wrapping the latter in a \lstinline{Ty} constructor. This is a bit of a shortcut, because not every term can be a type (consider \lstinline{Lambda}), but in view of $\Type : \Type$ it is convenient to have an easy way of converting terms to types and vice versa.}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Contexts -- \codeRef{lib/core/context.ml}}
+
+\begin{ocamllisting}
+module IdentMap = Map.Make(struct
+                             type t = string
+                             let compare = String.compare
+                           end)
+
+module VarMap = Map.Make(struct
+                            type t = TT.var
+                            let compare = Bindlib.compare_vars
+                         end)
+
+type t =
+  { idents : TT.var IdentMap.t ;
+    vars : (TT.tm option * TT.ty) VarMap.t }
+\end{ocamllisting}
+
+  \note[item]{The third main datatype is that of contexts.}
+  \note[item]{We use OCaml's map datatype to represent the two components of a context.}
+  \note[item]{The \lstinline{idents} field maps identifiers (strings) to variables.}
+  \note[item]{The \lstinline{vars} field maps variables to information associated with them.}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Core functionality -- \codeRef{lib/core/typecheck.ml}}
+
+  \Large
+  \begin{align*}
+    \mathtt{infer} &: \mathtt{Syntax.tm} \to \mathtt{Context.t} \to \mathtt{TT.tm} \times \mathtt{TT.ty} \\[1ex]
+    \mathtt{check} &: \mathtt{Syntax.tm} \to \mathtt{TT.ty} \to \mathtt{Context.t} \to \mathtt{TT.tm}
+  \end{align*}
+
+  \note[item]{Let us now consider the core functionality, namely type inference and checking. These are represented by two functions, as shown.}
+
+  \note[item]{Inference takes an input term and a context, and outputs a checker terms and its type.}
+
+  \note[item]{Checking takes an input term, a \emph{checked} type and a context, and outputs a checked term.}
+
+  \note[item]{Keep in mind that the typing information does not reveal an important fact: errors can happen. These will be implemented as exceptions. (Not trying to start a religious war, but in Haskell the presence of errors would be visible because Haskell \emph{simulates} exceptions as sums.)}
+
+  \note[item]{You might find it odd that context is passed as the last argument, rather than the first.
+  After all, we write $\Gamma \types t : A$ and not $t : A \dashv \Gamma$. There is a good reason for this.}
+
+  \note[item]{When we implement these functions, we will end up passing the context into recursive calls.
+    This is the kind of boilerplate code that we want to avoid, which we can by using a bit of functional
+    programming techniques.}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{A monad for contexts -- \codeRef{lib/core/context.ml}}
+
+\begin{ocamllisting}
+type 'a m = Context.t -> 'a
+
+val infer : Syntax.tm -> (TT.tm * TT.ty) m
+val check : Syntax.tm -> TT.ty -> TT.tm m
+\end{ocamllisting}
+
+\bigskip
+\pause
+
+\begin{ocamllisting}
+module Monad =
+struct
+  let ( let* ) c1 c2 ctx =
+    let v1 = c1 ctx in
+    c2 v1 ctx
+
+  let ( >>= ) = ( let* )
+
+  let return v ctx = v
+end
+\end{ocamllisting}
+
+  \note[item]{We define a datatype (constructor) \lstinline{m} as shown and wrap the output in it.}
+  \note[item]{Now, \lstinline{m} is a monad, the reader monad to be precise. (Not trying to start a religious war, but Haskellers told you so.)}
+  \note[item]{The OCaml \lstinline{let*} notation is the equivalent of Haskell's \lstinline{do} for monadic computations.}
+  \note[item]{If you do not know about monads, consider this a programming trick that allows us to use OCaml \lstinline{let*} syntax to pass along contexts implicitly.}
+
 \end{frame}
 
 \begin{frame}
-  \frametitle{Solved problems: parsing}
+  \frametitle{The core}
+
+  \begin{itemize}
+  \item \codeRef{lib/core/context.ml} (79 lines)
+  \item \codeRef{lib/core/typecheck.ml} (200 lines)
+    \begin{itemize}
+    \item What's up with \lstinline{TT.tm_} and \lstinline{Typecheck.infer_} and other underscores?
+    \end{itemize}
+  \item \codeRef{lib/core/norm.ml} (97 lines)
+    \begin{itemize}
+    \item We implement both the weak-head normal forms and call-by-value evaluation.
+    \end{itemize}
+  \item \codeRef{lib/core/equal.ml} (91 lines)
+  \end{itemize}
+
+  \note[item]{At this point, it is best to just read the code. There isn't that much of it.}
+
+  \note[item]{When reading one of the files, you should first read the \lstinline{.mli} file, which specifies the interface, and then \lstinline{.ml} file, which contains the implementation.}
+
+  \note[item]{Here we're going to take a peek, just to see if the code resembles the bidirectional rules and the two-phase equality checking from Lecture 1.}
+
+  \note[item]{The code seems to have two versions of everything: \lstinline{TT.tm} and \lstinline{TT.tm_}, \lstinline{TT.infer} and \lstinline{TT.check_}? This is a consequence of how Bindlib works.}
+
+  \note[item]{Briefly, in order Bindlib for to do its magic, it wants to participate in the construction of terms by
+    equipping them with extra information about variables. This is called \emph{boxing}, see \lstinline{Bindlib.box}.
+    The actual terms is obtained from a boxed one using \lstinline{Bindlib.unbox}.}
+
+  \note[item]{Convention: the underscore indicates that we're working with the boxed version of a datatype.}
+
 \end{frame}
 
 \begin{frame}
-  \frametitle{Solved problems: bound variables and substitution}
+  \frametitle{Putting it all together}
+
+  \begin{itemize}
+  \item Top level -- \codeRef{lib/core/toplevel.ml}
+    \begin{tabbing}
+    $\mathtt{load}\ \text{\texttt{\textit{"$\langle$file$\rangle$.ftt"}}}$ \qquad \= load a file \\
+    $\mathtt{axiom}\ c : t$ \> declare an undefined constant $c$ of type $t$ \\
+    $\texttt{def}\ x \mathrel{{:}{=}} e$ \> define $x$ to be $e$ \\
+    $\texttt{def}\ x : t \mathrel{{:}{=}} e$ \> define $x$ of type $t$ to be $e$ \\
+    $\mathtt{infer}\ e$ \> infer the type of $e$ \\
+    $\mathtt{eval}\ e$ \> evaluate $e$
+    \end{tabbing}
+  \item Main executable -- \codeRef{bin/fauxtt.ml}
+  \end{itemize}
+
+  \note[item]{Finally, we put it all together by implementing a top level. From a conceptual point of view there is nothing inspiring here, but it may be useful to see concretely how it's all composed.}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Example: Church numerals}
+
+\begin{fauxttlisting}
+def numeral :=
+  ∏ (A : Type), (A → A) → (A → A)
+def zero : numeral :=
+  λ (A : Type) (f : A → A) (x : A) ⇒ x
+def succ : numeral → numeral :=
+  λ n A (f : A → A) (x : A) ⇒ f (n A f x)
+def ( + ) : numeral → numeral → numeral :=
+  λ m n A (f : A → A) (x : A) ⇒ m A f (n A f x)
+def ( * ) : numeral → numeral → numeral :=
+  λ m n A (f : A → A) (x : A) ⇒ m A (n A f) x
+
+(* A trick to see the numerals *)
+axiom N : Type
+axiom Z : N
+axiom S : N → N
+
+eval (thousand N S Z)
+\end{fauxttlisting}
+
+\note[item]{As an illustrative example, let us look at the Church encoding of natural numbers.}
+\note[item]{The idea: the number $n$ is encoded as ``compose $n$ times''.}
+
 \end{frame}
 
 \begin{frame}
-  \frametitle{Abstract syntax}
+  \frametitle{Exercises}
 
-  show the data types from \texttt{TT}.
+  \begin{enumerate}
+  \item Install OCaml and OPAM.
+  \item Get \href{https://github.com/andrejbauer/faux-type-theory/tree/main}{Faux type theory} and compile it.
+  \item Is it really the case that equality is used precisely once in \codeRef{lib/core/typecheck.ml}?
+  \item Why do the internal local definitions \lstinline{TT.Let} store the type?
+  \item Find the code for type ascription and transcribe the bidirectional typing rules from it.
+  \end{enumerate}
 \end{frame}
-
-\begin{frame}
-  \frametitle{A monad for contexts}
-\end{frame}
-
-\begin{frame}
-  \frametitle{Type-checking}
-\end{frame}
-
-\begin{frame}
-  \frametitle{Normalization and equality}
-\end{frame}
-
 
 \end{document}
