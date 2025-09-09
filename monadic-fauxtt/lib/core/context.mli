@@ -26,7 +26,7 @@ val run : t -> 'a m -> 'a
 (** Extend the context with a variable and return it *)
 val extend : string -> ?def:TT.tm -> TT.ty -> t -> TT.var * t
 
-(** The list of identifiers which should not be used for printing bound variables. *)
+(** The identifiers which should not be used for printing bound variables. *)
 val penv : t -> Bindlib.ctxt
 
 (** Lookup the type of a variable *)

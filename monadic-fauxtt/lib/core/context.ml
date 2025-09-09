@@ -10,7 +10,8 @@ module VarMap = Map.Make(struct
                     let compare = Bindlib.compare_vars
                   end)
 
-(** A typing context is a list of known identifiers and definitional equalities. *)
+(** A typing context comprises two maps, the first one mapping strings to [Bindlib] variables,
+    and the second mapping variables to their types and optional definitions. *)
 type t =
   { idents : TT.var IdentMap.t
   ; vars : (TT.tm option * TT.ty) VarMap.t

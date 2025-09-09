@@ -13,15 +13,15 @@ and tm' =
   | Apply of tm * tm
   | Ascribe of tm * ty
 
-(* Parsed type (equal to tmession). *)
+(* Parsed types are the same as terms. *)
 and ty = tm
 
 (* Parsed top-level command. *)
 type toplevel = toplevel' Location.t
 and toplevel' =
   | TopLoad of string
-  | TopDefinition of string * tm
-  | TopCheck of tm
+  | TopDefinition of string * ty option * tm
+  | TopInfer of tm
   | TopEval of tm
   | TopAxiom of string * ty
 

@@ -17,8 +17,8 @@ and ty = tm
 type toplevel = toplevel' Location.t
 and toplevel' =
   | TopLoad of string
-  | TopDefinition of string * tm
-  | TopCheck of tm
+  | TopDefinition of string * ty option * tm
+  | TopInfer of tm
   | TopEval of tm
   | TopAxiom of string * ty
 

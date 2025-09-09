@@ -27,7 +27,7 @@ open Util
 %token <string> QUOTED_STRING
 %token LOAD
 %token DEF
-%token CHECK
+%token INFER
 %token EVAL
 %token AXIOM
 
@@ -71,10 +71,13 @@ topcomp_:
     { Syntax.TopLoad fn }
 
   | DEF x=var_name COLONEQ e=term
-    { Syntax.TopDefinition (x, e) }
+    { Syntax.TopDefinition (x, None, e) }
 
-  | CHECK e=term
-    { Syntax.TopCheck e }
+  | DEF x=var_name COLON t=term COLONEQ e=term
+    { Syntax.TopDefinition (x, Some t, e) }
+
+  | INFER e=term
+    { Syntax.TopInfer e }
 
   | EVAL e=term
     { Syntax.TopEval e }

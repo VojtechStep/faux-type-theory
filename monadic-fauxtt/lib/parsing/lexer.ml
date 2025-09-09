@@ -5,11 +5,11 @@ open Util
 (** Reserved words. *)
 let reserved = [
   ("axiom", Parser.AXIOM) ;
-  ("check", Parser.CHECK) ;
   ("def", Parser.DEF) ;
   ("eval", Parser.EVAL) ;
   ("fun", Parser.LAMBDA) ;
   ("λ", Parser.LAMBDA) ;
+  ("infer", Parser.INFER) ;
   ("let", Parser.LET) ;
   ("load", Parser.LOAD) ;
   ("forall", Parser.PROD) ;

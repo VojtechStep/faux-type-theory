@@ -11,10 +11,10 @@ def compose := λ (A B C : Type) (g : B → C) (f : A → B) (x : A) => g (f x)
 
 axiom u : P f
 
-check u : P f
+infer u : P f
 
-check u : P (id (A → A) f)
+infer u : P (id (A → A) f)
 
-check u : P (compose A A A (id A) f)
+infer u : P (compose A A A (id A) f)
   
 

@@ -4,27 +4,25 @@ def numeral := ∏ (A : Type), (A → A) → (A → A)
 
 eval numeral
 
-def zero := (λ (A : Type) (f : A → A) (x : A) ⇒ x) : numeral
+def zero : numeral := (λ (A : Type) (f : A → A) (x : A) ⇒ x)
 
-def succ :=
-  (λ (n : numeral) (A : Type) (f : A → A) (x : A) ⇒ f (n A f x)) : numeral → numeral
+def succ : numeral → numeral :=
+  (λ n A (f : A → A) (x : A) ⇒ f (n A f x))
 
-def one := succ zero : numeral
+def one : numeral := succ zero
 
-def two := succ one : numeral
+def two : numeral := succ one
 
-def three := (λ (A : Type) (f : A → A) (x : A) ⇒ f (f (f x))) : numeral
+def three : numeral := (λ A (f : A → A) (x : A) ⇒ f (f (f x)))
 
 def five := succ (succ (succ (succ (succ zero))))
 
-def ( + ) :=
-  (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A f (n A f x))
-  : numeral → numeral → numeral
-
-def ( * ) :=
-  (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A (n A f) x)
-  : numeral → numeral → numeral
-
+def ( + ) : numeral → numeral → numeral :=
+  λ m n A (f : A → A) (x : A) ⇒ m A f (n A f x)
+  
+def ( * ) : numeral → numeral → numeral :=
+  λ m n A (f : A → A) (x : A) ⇒ m A (n A f) x
+  
 def ten := five + five
 
 def hundred := ten * ten
@@ -37,3 +35,4 @@ axiom Z : N
 axiom S : N → N
 
 eval (thousand N S Z)
+

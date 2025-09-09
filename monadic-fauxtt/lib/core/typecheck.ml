@@ -1,6 +1,6 @@
 (** Faux type checking. *)
 
-module ISyntax = Parsing.Syntax
+module Syntax = Parsing.Syntax
 
 module Location = Util.Location
 
@@ -46,7 +46,7 @@ open Context.Monad
 let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
   match e' with
 
-  | ISyntax.Var x ->
+  | Syntax.Var x ->
      begin
        Context.lookup_ident x >>= function
        | None -> error ~loc (UnknownIdent x)
@@ -55,7 +55,7 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
           return (TT.var_ v, TT.lift_ty t)
      end
 
-  | ISyntax.Let (x, e1, e2) ->
+  | Syntax.Let (x, e1, e2) ->
      let* (e1, t1) = infer_ e1 in
      Context.with_ident_ x ~def:e1 t1
        (fun v ->
@@ -63,27 +63,27 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
          let t2 = TT.(lift_ty (Bindlib.subst (unbox (bind_var v t2)) (unbox e1))) in
          return TT.(let_ e1 t1 (bind_var v e2), t2))
 
-  | ISyntax.Type ->
+  | Syntax.Type ->
      return TT.(type_, ty_type_)
 
-  | ISyntax.Prod ((x, u), t) ->
+  | Syntax.Prod ((x, u), t) ->
      let* u = check_ty_ u in
      Context.with_ident_ x u
        (fun v ->
          let* t = check_ty_ t in
          return TT.(prod_ u (bind_var v t), ty_type_))
 
-  | ISyntax.Lambda ((x, Some u), e) ->
+  | Syntax.Lambda ((x, Some u), e) ->
      let* u = check_ty_ u in
      Context.with_ident_ x u
        (fun v ->
          let* (e, t) = infer_ e in
          return TT.(lambda_ u (bind_var v e), ty_prod_ u (bind_var v t)))
 
-  | ISyntax.Lambda ((x, None), _) ->
+  | Syntax.Lambda ((x, None), _) ->
      error ~loc (CannotInferArgument x)
 
-  | ISyntax.Apply (e1, e2) ->
+  | Syntax.Apply (e1, e2) ->
      let* (e1_, t1_) = infer_ e1 in
      let t1 = TT.unbox t1_ in
      begin
@@ -95,17 +95,15 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
           return TT.(apply_ e1_ e2_, TT.lift_ty (Bindlib.subst t e2))
      end
 
-  | ISyntax.Ascribe (e, t) ->
+  | Syntax.Ascribe (e, t) ->
      let* t = check_ty_ t in
      let* e = check_ e (TT.unbox t) in
      return (e, t)
 
-(** [check ctx e ty] checks that [e] has type [ty] in context [ctx].
-    It returns the processed expression [e]. *)
 and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
   match e' with
 
-  | ISyntax.Lambda ((x, None), e) ->
+  | Syntax.Lambda ((x, None), e) ->
      begin
        Norm.as_prod ty >>= function
        | None -> error ~loc (TypeExpectedButFunction ty)
@@ -117,19 +115,19 @@ and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
               return TT.(lambda_ (TT.lift_ty t) (bind_var v e)))
      end
 
-  | ISyntax.Let (x, e1, e2) ->
+  | Syntax.Let (x, e1, e2) ->
      let* (e1, t1) = infer_ e1 in
      Context.with_ident_ x ~def:e1 t1
        (fun v ->
          let* e2 = check_ e2 ty in
          return TT.(let_ e1 t1 (bind_var v e2)))
 
-  | ISyntax.Lambda ((_, Some _), _)
-  | ISyntax.Apply _
-  | ISyntax.Prod _
-  | ISyntax.Var _
-  | ISyntax.Type
-  | ISyntax.Ascribe _ ->
+  | Syntax.Lambda ((_, Some _), _)
+  | Syntax.Apply _
+  | Syntax.Prod _
+  | Syntax.Var _
+  | Syntax.Type
+  | Syntax.Ascribe _ ->
      begin
        let* (e, ty'_) = infer_ e in
        let ty' = TT.unbox ty'_ in
@@ -138,17 +136,22 @@ and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
        | false -> error ~loc (TypeExpected (ty, ty'))
      end
 
-
-(** [check_ty ctx t] checks that [t] is a type in context [ctx]. It returns the processed
-   type [t]. *)
 and check_ty_ t =
   let* t = check_ t TT.(Ty Type) in
   return (TT.ty_ t)
 
+(** [check e ty] checks that [e] has type [ty]. It returns the processed term [e]. *)
+let check e t =
+  let* e = check_ e t in
+  return (Bindlib.unbox e)
+
+(** [infer e] infers the type of [e]. It returns the processed term and type. *)
 let infer e =
   let* (e_, t_) = infer_ e in
   return (TT.unbox e_, TT.unbox t_)
 
+(** [check_ty ctx t] checks that [t] is a type in context [ctx]. It returns the processed
+   type [t]. *)
 let check_ty t =
   let* t_ = check_ty_ t in
   return (TT.unbox t_)
@@ -159,23 +162,30 @@ let rec toplevel ~quiet ctx {Location.data=tc; _} =
 
 and toplevel' ~quiet ctx = function
 
-  | ISyntax.TopLoad file ->
+  | Syntax.TopLoad file ->
      topfile ~quiet ctx file
 
-  | ISyntax.TopDefinition (x, e) ->
+  | Syntax.TopDefinition (x, None, e) ->
      let e, ty = Context.run ctx (infer e) in
      let _, ctx = Context.extend x ~def:e ty ctx in
      if not quiet then Format.printf "%s is defined.@." x ;
      ctx
 
-  | ISyntax.TopCheck e ->
+  | Syntax.TopDefinition (x, Some ty, e) ->
+     let ty = Context.run ctx (check_ty ty) in
+     let e = Context.run ctx (check e ty) in
+     let _, ctx = Context.extend x ~def:e ty ctx in
+     if not quiet then Format.printf "%s is defined.@." x ;
+     ctx
+
+  | Syntax.TopInfer e ->
      let e, ty = Context.run ctx (infer e) in
      Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
        (Print.tm ~penv:(Context.penv ctx) e)
        (Print.ty ~penv:(Context.penv ctx) ty) ;
      ctx
 
-  | ISyntax.TopEval e ->
+  | Syntax.TopEval e ->
      let e, ty = Context.run ctx (infer e) in
      let e = Context.run ctx (Norm.eval_tm e) in
      Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
@@ -183,7 +193,7 @@ and toplevel' ~quiet ctx = function
        (Print.ty ~penv:(Context.penv ctx) ty) ;
      ctx
 
-  | ISyntax.TopAxiom (x, ty) ->
+  | Syntax.TopAxiom (x, ty) ->
      let ty = Context.run ctx (check_ty ty) in
      let _, ctx = Context.extend x ty ctx in
      if not quiet then Format.printf "%s is assumed.@." x ;

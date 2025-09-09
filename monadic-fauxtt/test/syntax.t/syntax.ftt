@@ -1,6 +1,6 @@
 (* Every bit of syntax should appear in this file. *)
 
-check Type
+infer Type
 
 eval Type
 
@@ -10,22 +10,22 @@ axiom B : A
 
 (* Functions *)
 
-check fun (A : Type) => A
+infer fun (A : Type) => A
 
-check fun (A B C : Type) => A
+infer fun (A B C : Type) => A
 
-check fun (A B C : Type) (x y : B) => x
+infer fun (A B C : Type) (x y : B) => x
 
-check λ (A : Type) ⇒ A
+infer λ (A : Type) ⇒ A
 
-check λ (A B C : Type) ⇒ A
+infer λ (A B C : Type) ⇒ A
 
-check (λ x y z ⇒ y) : B → B → B → B
+infer (λ x y z ⇒ y) : B → B → B → B
 
-check λ (A B C : Type) (x y : B) ⇒ x
+infer λ (A B C : Type) (x y : B) ⇒ x
 
 (* Let statement *)
 
 def id := fun (A : Type) (x : A) => x
 
-check λ (S : Type) (c : S) (T : S → Type) (u : T c) ⇒ let x := id S c in (u : T (id S x))
+infer λ (S : Type) (c : S) (T : S → Type) (u : T c) ⇒ let x := id S c in (u : T (id S x))

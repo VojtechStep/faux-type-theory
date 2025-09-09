@@ -4,27 +4,25 @@ def numeral := ∏ (A : Type), (A → A) → (A → A)
 
 eval numeral
 
-def zero := (λ (A : Type) (f : A → A) (x : A) ⇒ x) : numeral
+def zero : numeral := (λ (A : Type) (f : A → A) (x : A) ⇒ x)
 
-def succ :=
-  (λ (n : numeral) (A : Type) (f : A → A) (x : A) ⇒ f (n A f x)) : numeral → numeral
+def succ : numeral → numeral :=
+  (λ (n : numeral) (A : Type) (f : A → A) (x : A) ⇒ f (n A f x))
 
-def one := succ zero : numeral
+def one : numeral := succ zero
 
-def two := succ one : numeral
+def two : numeral := succ one
 
-def three := (λ (A : Type) (f : A → A) (x : A) ⇒ f (f (f x))) : numeral
+def three : numeral := (λ (A : Type) (f : A → A) (x : A) ⇒ f (f (f x)))
 
 def five := succ (succ (succ (succ (succ zero))))
 
-def ( + ) :=
+def ( + ) : numeral → numeral → numeral :=
   (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A f (n A f x))
-  : numeral → numeral → numeral
-
-def ( * ) :=
+  
+def ( * ) : numeral → numeral → numeral :=
   (λ (m n : numeral) (A : Type) (f : A → A) (x : A) ⇒ m A (n A f) x)
-  : numeral → numeral → numeral
-
+  
 def ten := five + five
 
 def hundred := ten * ten
