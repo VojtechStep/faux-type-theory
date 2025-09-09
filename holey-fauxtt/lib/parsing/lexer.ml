@@ -8,16 +8,19 @@ let reserved = [
   ("def", Parser.DEF) ;
   ("eval", Parser.EVAL) ;
   ("fun", Parser.LAMBDA) ;
-  ("λ", Parser.LAMBDA) ;
+  ("forall", Parser.PROD) ;
+  ("hole", Parser.HOLE) ;
   ("infer", Parser.INFER) ;
+  ("λ", Parser.LAMBDA) ;
   ("let", Parser.LET) ;
   ("load", Parser.LOAD) ;
-  ("forall", Parser.PROD) ;
   ("∀", Parser.PROD) ;
   ("Π", Parser.PROD) ;
   ("∏", Parser.PROD) ;
   ("in", Parser.IN) ;
-  ("Type", Parser.TYPE)
+  ("Type", Parser.TYPE) ;
+  ("unify", Parser.UNIFY) ;
+  ("with", Parser.WITH)
 ]
 
 let name =

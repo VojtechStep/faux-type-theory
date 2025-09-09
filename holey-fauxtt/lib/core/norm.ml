@@ -95,3 +95,10 @@ let as_prod t =
   match t' with
   | TT.Prod (t, u) -> return @@ Some (t, u)
   | _ -> return None
+
+(** Normalize a term to a variable. *)
+let as_var e =
+  let* e' = norm_tm' ~strategy:WHNF e in
+  match e' with
+  | TT.Var v -> return @@ Some v
+  | _ -> return None

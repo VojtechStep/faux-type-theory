@@ -19,6 +19,7 @@ open Util
 
 (* Expressions *)
 %token LET IN
+%token HOLE UNIFY WITH
 %token TYPE
 %token PROD
 %token LAMBDA
@@ -102,6 +103,12 @@ term_:
 
   | LET x=var_name COLONEQ e1=term IN e2=term
     { Syntax.Let (x, e1, e2) }
+
+  | HOLE x=var_name COLON e1=term IN e2=term
+    { Syntax.Hole (x, e1, e2) }
+
+  | UNIFY e1=term WITH e2=term IN e3=term
+    { Syntax.Unify (e1, e2, e3) }
 
   | e=infix_term COLON t=term
     { Syntax.Ascribe (e, t) }

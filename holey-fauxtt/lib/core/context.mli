@@ -49,6 +49,9 @@ val lookup_def : TT.var -> TT.tm option m
 (** Lookup the variable which corresponds to a concrete name. *)
 val lookup_ident : string -> TT.var option m
 
+(** Lookup the meta variable information associated with a variable, if any. *)
+val is_meta : TT.var -> bool m
+
 (** Run a computation in a context extended with a variable, passing it the newly
     created variable. It is the callers responsibility that the result be valid in
     the original context. *)
@@ -60,3 +63,15 @@ val with_ident_ : string -> ?def:TT.tm_ -> TT.ty_ -> (TT.var -> 'a m) -> 'a m
 val with_var : TT.var -> ?def:TT.tm -> TT.ty -> 'a m -> 'a m
 
 val with_meta_ : string -> TT.ty_ -> chk:(TT.tm -> bool) -> (TT.var -> 'a m) -> 'a m
+
+(** Check that the free variables occuring in the term exist in the current context *)
+val well_scoped_tm : TT.tm -> bool m
+
+(** Like [well_scoped_tm] but it captures the current context and uses it to check well-scoping. *)
+val well_scoped_tm' : (TT.tm -> bool) m
+
+(** Check that the free variables occurting in a type exist in the current context *)
+val well_scoped_ty : TT.ty -> bool m
+
+(** Like [well_scoped_ty] but it captures the current context and uses it to check well-scoping. *)
+val well_scoped_ty' : (TT.ty -> bool) m

@@ -86,6 +86,11 @@ let lookup_def v ctx =
   | Free | Meta _ -> ctx, None
   | Defined e -> ctx, Some e
 
+let is_meta v ctx =
+  match fst (lookup v ctx) with
+  | Free | Defined _ -> ctx, false
+  | Meta _ -> ctx, true
+
 let with_var v ?def t (c : 'a m) ctx =
   let ent = match def with None -> Free | Some e -> Defined e in
   let local_ctx = _extend_var v ent t ctx in
@@ -125,3 +130,41 @@ let define v def ctx =
       ctx, true
     else
       ctx, false
+
+
+let rec well_scoped_tm e =
+  let exists x ctx =
+    ctx, VarMap.mem x ctx.vars
+  in
+
+  let open Monad in
+  match e with
+
+  | TT.Var x ->
+    exists x
+
+  | TT.Let (e1, ty, e2) ->
+    well_scoped_tm e1 &&&
+    well_scoped_ty ty &&&
+    (let x, e2 = TT.unbind e2 in with_var x ty (well_scoped_tm e2))
+
+  | TT.Type ->
+    return false
+
+  | TT.Prod (ty1, ty2) ->
+    well_scoped_ty ty1 &&&
+    (let x, ty2 = TT.unbind ty2 in with_var x ty1 (well_scoped_ty ty2))
+
+  | TT.Lambda (ty, e) ->
+    well_scoped_ty ty &&&
+    (let x, e = TT.unbind e in with_var x ty (well_scoped_tm e))
+
+  | TT.Apply (e1, e2) ->
+    well_scoped_tm e1 &&&
+    well_scoped_tm e2
+
+and well_scoped_ty (Ty e) = well_scoped_tm e
+
+let well_scoped_tm' ctx = ctx, (fun e -> snd (well_scoped_tm e ctx))
+
+let well_scoped_ty' ctx = ctx, (fun t -> snd (well_scoped_ty t ctx))

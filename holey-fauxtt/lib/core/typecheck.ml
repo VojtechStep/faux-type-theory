@@ -11,6 +11,8 @@ type type_error =
   | TypeExpectedButFunction of TT.ty
   | FunctionExpected of TT.ty
   | CannotInferArgument of string
+  | EmptyHole of string
+  | UnificationFailed
 
 exception Error of type_error Location.t
 
@@ -38,6 +40,11 @@ let print_error ~penv err ppf =
   | CannotInferArgument x ->
      Format.fprintf ppf "cannot infer the type of %s" x
 
+  | EmptyHole x ->
+    Format.fprintf ppf "empty hole %s" x
+
+  | UnificationFailed ->
+    Format.fprintf ppf "unification failed"
 
 open Context.Monad
 
@@ -100,6 +107,31 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
      let* e = check_ e (TT.unbox t) in
      return (e, t)
 
+  | Syntax.Hole (x, u, e) ->
+    let* u = check_ty_ u in
+    let* chk = Context.well_scoped_tm' in
+    Context.with_meta_ x u ~chk
+      (fun v ->
+         let* (e, t) = infer_ e in
+         let* def = Context.lookup_def v in
+         match def with
+         | None -> error ~loc (EmptyHole x)
+         | Some e' ->
+           let t = TT.(lift_ty (Bindlib.subst (unbox (bind_var v t)) e')) in
+           return TT.(let_ (lift_tm e') u (bind_var v e), t)
+      )
+
+  | Syntax.Unify (e1, e2, e3) ->
+    begin
+      let* (e1, t) = infer_ e1 in
+      let t = TT.unbox t in
+      let* e2 = check_ e2 t in
+      Unify.unify_tm_at (TT.unbox e1) (TT.unbox e2) t >>= function
+      | true -> infer_ e3
+      | false -> error ~loc UnificationFailed
+    end
+
+
 and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
   match e' with
 
@@ -122,6 +154,28 @@ and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
          let* e2 = check_ e2 ty in
          return TT.(let_ e1 t1 (bind_var v e2)))
 
+  | Syntax.Hole (x, u, e) ->
+    let* u = check_ty_ u in
+    Context.with_ident_ x u
+      (fun v ->
+         let* e = check_ e ty in
+         let* def = Context.lookup_def v in
+         match def with
+         | None -> error ~loc (EmptyHole x)
+         | Some e' ->
+           return TT.(let_ (lift_tm e') u (bind_var v e))
+      )
+  | Syntax.Unify (e1, e2, e3) ->
+    begin
+      let* (e1, t) = infer_ e1 in
+      let t = TT.unbox t in
+      let* e2 = check_ e2 t in
+      Unify.unify_tm_at (TT.unbox e1) (TT.unbox e2) t >>= function
+      | true -> check_ e3 ty
+      | false -> error ~loc UnificationFailed
+    end
+
+  (* Inferring terms *)
   | Syntax.Lambda ((_, Some _), _)
   | Syntax.Apply _
   | Syntax.Prod _
@@ -131,7 +185,7 @@ and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
      begin
        let* (e, ty'_) = infer_ e in
        let ty' = TT.unbox ty'_ in
-       Equal.equal_ty ty ty' >>= function
+       Unify.unify_ty ty ty' >>= function
        | true -> return e
        | false -> error ~loc (TypeExpected (ty, ty'))
      end

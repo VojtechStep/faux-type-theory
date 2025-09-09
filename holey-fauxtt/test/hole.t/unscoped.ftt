@@ -1,0 +1,3 @@
+infer λ (B : Type) ⇒ hole A : Type in unify A with B in A
+
+infer hole A : Type in λ (B : Type) ⇒ unify A with B in A
