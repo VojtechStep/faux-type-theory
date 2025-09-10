@@ -55,7 +55,7 @@ let lookup_meta v =
 
 let with_ident_var x v ?def t c =
   try
-    c v
+    c ()
   with
   | effect (LookupVar w), k when Bindlib.eq_vars v w ->
      continue k (def, t)
@@ -88,11 +88,11 @@ let with_ident_var x v ?def t c =
 
 let with_ident x ?def t (c : TT.var -> 'a) =
   let v = TT.fresh_var x in
-  with_ident_var x v ?def t c
+  with_ident_var x v ?def t (fun () -> c v)
 
 let with_var v ?def t (c : unit -> 'a) =
   let x = Util.Name.anonymous () in
-  with_ident_var x v ?def t (fun _ -> c ())
+  with_ident_var x v ?def t c
 
 let with_ident_ x ?def ty_ (c : TT.var -> 'a) =
   let ty = TT.unbox ty_ in
