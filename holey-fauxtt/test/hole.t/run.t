@@ -1,27 +1,26 @@
   $ fauxtt hole.ftt
   A is assumed.
-  P is assumed.
-  f is assumed.
-  λ (a : A), let X := A in ((λ (x : X), x) a)
-       : Π (a : A), A
-  let X := A in (λ (a : A), (λ (x : X), x) a)
-       : Π (a : A), A
-  let g := (λ (a : A), λ (b : A), b) in (λ (a : A), λ (b : A), g)
-       : Π (a : A), Π (b : A), Π (_3 : A), Π (_4 : A), A
-  λ (a : A), λ (b : A), let g := (λ (a1 : A), λ (b1 : A), b1) in g
-       : Π (a : A), Π (b : A), Π (_5 : A), Π (_6 : A), A
-  λ (a : A), λ (b : A), let g := (λ (a1 : A), λ (b1 : A), f a1) in g
-       : Π (a : A), Π (b : A), Π (x : A), Π (y : A), P x
-  let h := (λ (x : A), λ (y : A), x) in (λ (x : A), λ (y : A), h)
-       : Π (x : A), Π (y : A), Π (_7 : A), Π (_8 : A), A
-  let h := (λ (x : A), λ (y : A), x) in (λ (x : A), λ (y : A), y)
-       : Π (x : A), Π (y : A), A
-  $ fauxtt nonlinear.ftt
-  A is assumed.
-  Typechecking error at file "nonlinear.ftt", line 3, charaters 40-63:
-  unification failed
+  a is assumed.
+  (λ (x : A) ⇒ x) a
+       : A
+  λ (B : Type) ⇒ λ (b : B) ⇒
+    (λ (x : (λ (B1 : Type) ⇒ λ (b1 : B1) ⇒ B1) B b) ⇒ x) b
+       : Π (B : Type), Π (b : B), (λ (B1 : Type) ⇒ λ (b1 : B1) ⇒ B1) B
+           b
+  let B := A in
+  (λ (b : B) ⇒ (λ (x : (let B1 := A in (λ (b1 : B1) ⇒ B1)) b) ⇒ x) b)
+       : Π (b : A), (let B := A in (λ (b1 : B) ⇒ B)) b
+  λ (B : Type) ⇒ λ (f : Π (_1 : B), B) ⇒ λ
+  (x : (λ (B1 : Type) ⇒ λ (f1 : Π (_1 : B1), B1) ⇒ B1) B f) ⇒ f x
+       : Π (B : Type), Π (f : Π (_1 : B), B),
+           Π (x : (λ (B1 : Type) ⇒ λ (f1 : Π (_1 : B1), B1) ⇒ B1) B f),
+             B
   $ fauxtt unscoped.ftt
-  λ (B : Type), let A := B in A
-       : Π (B : Type), Type
-  Typechecking error at file "unscoped.ftt", line 3, charaters 38-57:
-  unification failed
+  Typechecking error at file "unscoped.ftt", line 1, charaters 44-45:
+  this expression should have type B but has type ?X
+  $ fauxtt funhole.ftt
+  A is assumed.
+  a is assumed.
+  i is assumed.
+  Typechecking error at file "funhole.ftt", line 5, charaters 21-26:
+  this expression should be a function but has type ?X

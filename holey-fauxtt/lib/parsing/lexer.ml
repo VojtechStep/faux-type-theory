@@ -9,7 +9,6 @@ let reserved = [
   ("eval", Parser.EVAL) ;
   ("fun", Parser.LAMBDA) ;
   ("forall", Parser.PROD) ;
-  ("hole", Parser.HOLE) ;
   ("infer", Parser.INFER) ;
   ("λ", Parser.LAMBDA) ;
   ("let", Parser.LET) ;
@@ -18,9 +17,7 @@ let reserved = [
   ("Π", Parser.PROD) ;
   ("∏", Parser.PROD) ;
   ("in", Parser.IN) ;
-  ("Type", Parser.TYPE) ;
-  ("unify", Parser.UNIFY) ;
-  ("with", Parser.WITH)
+  ("Type", Parser.TYPE)
 ]
 
 let name =
@@ -82,6 +79,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
      Ulexbuf.new_line ~n:!n lexbuf;
      Parser.QUOTED_STRING (String.sub s 1 (l - 2))
   | '_'                      -> f (); Parser.UNDERSCORE
+  | '?'                      -> f (); Parser.QUESTIONMARK
   | '('                      -> f (); Parser.LPAREN
   | ')'                      -> f (); Parser.RPAREN
   | ','                      -> f (); Parser.COMMA

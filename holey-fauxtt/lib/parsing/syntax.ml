@@ -9,8 +9,7 @@ and tm' =
   | Lambda of (string * ty option) * tm
   | Apply of tm * tm
   | Ascribe of tm * ty
-  | Hole of string * ty * tm
-  | Unify of tm * tm * tm
+  | Hole of string
 
 (* Parsed type (equal to tmession). *)
 and ty = tm

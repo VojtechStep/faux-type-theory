@@ -11,8 +11,7 @@ type type_error =
   | TypeExpectedButFunction of TT.ty
   | FunctionExpected of TT.ty
   | CannotInferArgument of string
-  | EmptyHole of string
-  | UnificationFailed
+  | CannotInferHole of string
 
 exception Error of type_error Location.t
 
@@ -40,11 +39,8 @@ let print_error ~penv err ppf =
   | CannotInferArgument x ->
      Format.fprintf ppf "cannot infer the type of %s" x
 
-  | EmptyHole x ->
-    Format.fprintf ppf "empty hole %s" x
-
-  | UnificationFailed ->
-    Format.fprintf ppf "unification failed"
+  | CannotInferHole x ->
+    Format.fprintf ppf "unresolved hole ?%s" x
 
 open Context.Monad
 
@@ -58,7 +54,7 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
        Context.lookup_ident x >>= function
        | None -> error ~loc (UnknownIdent x)
        | Some v ->
-          let* t = Context.lookup_ty v in
+          let* _, t = Context.lookup_var v in
           return (TT.var_ v, TT.lift_ty t)
      end
 
@@ -107,29 +103,8 @@ let rec infer_ {Location.data=e'; loc} : (TT.tm_ * TT.ty_) Context.m =
      let* e = check_ e (TT.unbox t) in
      return (e, t)
 
-  | Syntax.Hole (x, u, e) ->
-    let* u = check_ty_ u in
-    let* chk = Context.well_scoped_tm' in
-    Context.with_meta_ x u ~chk
-      (fun v ->
-         let* (e, t) = infer_ e in
-         let* def = Context.lookup_def v in
-         match def with
-         | None -> error ~loc (EmptyHole x)
-         | Some e' ->
-           let t = TT.(lift_ty (Bindlib.subst (unbox (bind_var v t)) e')) in
-           return TT.(let_ (lift_tm e') u (bind_var v e), t)
-      )
-
-  | Syntax.Unify (e1, e2, e3) ->
-    begin
-      let* (e1, t) = infer_ e1 in
-      let t = TT.unbox t in
-      let* e2 = check_ e2 t in
-      Unify.unify_tm_at (TT.unbox e1) (TT.unbox e2) t >>= function
-      | true -> infer_ e3
-      | false -> error ~loc UnificationFailed
-    end
+  | Syntax.Hole x ->
+     error ~loc (CannotInferHole x)
 
 
 and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
@@ -154,26 +129,9 @@ and check_ ({Location.data=e'; loc} as e) (ty : TT.ty) : TT.tm_ Context.m =
          let* e2 = check_ e2 ty in
          return TT.(let_ e1 t1 (bind_var v e2)))
 
-  | Syntax.Hole (x, u, e) ->
-    let* u = check_ty_ u in
-    Context.with_ident_ x u
-      (fun v ->
-         let* e = check_ e ty in
-         let* def = Context.lookup_def v in
-         match def with
-         | None -> error ~loc (EmptyHole x)
-         | Some e' ->
-           return TT.(let_ (lift_tm e') u (bind_var v e))
-      )
-  | Syntax.Unify (e1, e2, e3) ->
-    begin
-      let* (e1, t) = infer_ e1 in
-      let t = TT.unbox t in
-      let* e2 = check_ e2 t in
-      Unify.unify_tm_at (TT.unbox e1) (TT.unbox e2) t >>= function
-      | true -> check_ e3 ty
-      | false -> error ~loc UnificationFailed
-    end
+  | Syntax.Hole x ->
+     let ty_ = TT.lift_ty ty in
+     Context.with_meta_ x ty_ return
 
   (* Inferring terms *)
   | Syntax.Lambda ((_, Some _), _)
@@ -210,6 +168,54 @@ let check_ty t =
   let* t_ = check_ty_ t in
   return (TT.unbox t_)
 
+let rec resolve_tm = function
+
+  | TT.(Var _ | Type) as e -> return e
+
+  | TT.Meta v ->
+     begin
+       Context.lookup_meta v >>= function
+       | None, _ -> error ~loc:Location.Nowhere (CannotInferHole (Bindlib.name_of v))
+       | Some e, _ -> resolve_tm e
+     end
+
+  | TT.Let (e1, t, e2) ->
+     let* e1 = resolve_tm e1 in
+     let* t = resolve_ty t in
+     let* e2 = resolve_binder_tm e2 in
+     return TT.(Let (e1, t, e2))
+
+  | TT.Prod (t1, t2) ->
+     let* t1 = resolve_ty t1 in
+     let* t2 = resolve_binder_ty t2 in
+     return TT.(Prod (t1, t2))
+
+  | TT.Apply (e1, e2) ->
+     let* e1 = resolve_tm e1 in
+     let* e2 = resolve_tm e2 in
+     return TT.(Apply (e1, e2))
+
+  | TT.Lambda (t, e) ->
+     let* t = resolve_ty t in
+     let* e = resolve_binder_tm e in
+     return TT.(Lambda (t, e))
+
+and resolve_ty (TT.Ty t) =
+  let* t = resolve_tm t in
+  return TT.(Ty t)
+
+and resolve_binder_tm e =
+  let (v, e) = Bindlib.unbind e in
+  let* e = resolve_tm e in
+  let e_ = TT.lift_tm e in
+  return TT.(unbox (bind_var v e_))
+
+and resolve_binder_ty t =
+  let (v, t) = Bindlib.unbind t in
+  let* t = resolve_ty t in
+  let t_ = TT.lift_ty t in
+  return TT.(unbox (bind_var v t_))
+
 let rec toplevel ~quiet ctx {Location.data=tc; _} =
   let ctx = toplevel' ~quiet ctx tc in
   ctx
@@ -220,27 +226,51 @@ and toplevel' ~quiet ctx = function
      topfile ~quiet ctx file
 
   | Syntax.TopDefinition (x, None, e) ->
-     let ctx, (e, ty) = Context.run ctx (infer e) in
-     let ctx, _ = Context.extend x ~def:e ty ctx in
+     let ctx, (e, ty) =
+       Context.run ctx
+         (let* (e, ty) = infer e in
+          let* e = resolve_tm e in
+          let* ty = resolve_ty ty in
+          return (e, ty))
+     in
+     let ctx = Context.top_extend x ~def:e ty ctx in
      if not quiet then Format.printf "%s is defined.@." x ;
      ctx
 
   | Syntax.TopDefinition (x, Some ty, e) ->
-     let ctx, ty = Context.run ctx (check_ty ty) in
-     let ctx, e = Context.run ctx (check e ty) in
-     let ctx, _ = Context.extend x ~def:e ty ctx in
+     let ctx, (e, ty) =
+       Context.run ctx
+         (let* ty = check_ty ty in
+          let* e = check e ty in
+          let* ty = resolve_ty ty in
+          let* e = resolve_tm e in
+          return (e, ty))
+     in
+     let ctx = Context.top_extend x ~def:e ty ctx in
      if not quiet then Format.printf "%s is defined.@." x ;
      ctx
 
   | Syntax.TopInfer e ->
-     let ctx, (e, ty) = Context.run ctx (infer e) in
+     let ctx, (e, ty) =
+       Context.run ctx
+         (let* (e, ty) = infer e in
+          let* e = resolve_tm e in
+          let* ty = resolve_ty ty in
+          return (e, ty))
+     in
      Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
        (Print.tm ~penv:(Context.penv ctx) e)
        (Print.ty ~penv:(Context.penv ctx) ty) ;
      ctx
 
   | Syntax.TopEval e ->
-     let ctx, (e, ty) = Context.run ctx (infer e) in
+     let ctx, (e, ty) =
+       Context.run ctx
+         (let* (e, ty) = infer e in
+          let* e = resolve_tm e in
+          let* ty = resolve_ty ty in
+          return (e, ty))
+     in
      let ctx, e = Context.run ctx (Norm.eval_tm e) in
      Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
        (Print.tm ~penv:(Context.penv ctx) e)
@@ -248,8 +278,9 @@ and toplevel' ~quiet ctx = function
      ctx
 
   | Syntax.TopAxiom (x, ty) ->
-     let ctx, ty = Context.run ctx (check_ty ty) in
-     let ctx, _ = Context.extend x ty ctx in
+     let ctx, ty =
+       Context.run ctx (let* ty = check_ty ty in resolve_ty ty) in
+     let ctx = Context.top_extend x ty ctx in
      if not quiet then Format.printf "%s is assumed.@." x ;
      ctx
 

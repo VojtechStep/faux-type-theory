@@ -29,28 +29,24 @@ val initial : t
 (** Run a computation in the given context. *)
 val run : t -> 'a m -> t * 'a
 
-(** Assign a value to a meta-variable and report whether the assignment
-   succeeded. It is an error to attempt to assign a variable which
-   is not a meta-variable. *)
-val define : TT.var -> TT.tm -> bool m
+(** Assign a value to a meta-variable. It is the caller's responsbility to assign a value of correct type. It is error
+    to assign a value to an already defined meta. *)
+val define : TT.var -> TT.tm -> unit m
 
-(** Extend the context with a variable and return it *)
-val extend : string -> ?def:TT.tm -> TT.ty -> t -> t * TT.var
+(** Extend the context with a top-level definition and return it *)
+val top_extend : string -> ?def:TT.tm -> TT.ty -> t -> t
 
 (** The identifiers which should not be used for printing bound variables. *)
 val penv : t -> Bindlib.ctxt
 
-(** Lookup the type of a variable *)
-val lookup_ty : TT.var -> TT.ty m
-
 (** Lookup the definition associated with a variable, if any. *)
-val lookup_def : TT.var -> TT.tm option m
+val lookup_var : TT.var -> (TT.tm option * TT.ty) m
+
+(** Lookup the definition associated with a meta-variable, if any. *)
+val lookup_meta : TT.var -> (TT.tm option * TT.ty) m
 
 (** Lookup the variable which corresponds to a concrete name. *)
 val lookup_ident : string -> TT.var option m
-
-(** Lookup the meta variable information associated with a variable, if any. *)
-val is_meta : TT.var -> bool m
 
 (** Run a computation in a context extended with a variable, passing it the newly
     created variable. It is the callers responsibility that the result be valid in
@@ -62,16 +58,8 @@ val with_ident_ : string -> ?def:TT.tm_ -> TT.ty_ -> (TT.var -> 'a m) -> 'a m
 
 val with_var : TT.var -> ?def:TT.tm -> TT.ty -> 'a m -> 'a m
 
-val with_meta_ : string -> TT.ty_ -> chk:(TT.tm -> bool) -> (TT.var -> 'a m) -> 'a m
+val with_meta : string -> TT.ty -> (TT.tm -> 'a m) -> 'a m
 
-(** Check that the free variables occuring in the term exist in the current context *)
-val well_scoped_tm : TT.tm -> bool m
+val with_meta_ : string -> TT.ty_ -> (TT.tm_ -> 'a m) -> 'a m
 
-(** Like [well_scoped_tm] but it captures the current context and uses it to check well-scoping. *)
-val well_scoped_tm' : (TT.tm -> bool) m
-
-(** Check that the free variables occurting in a type exist in the current context *)
-val well_scoped_ty : TT.ty -> bool m
-
-(** Like [well_scoped_ty] but it captures the current context and uses it to check well-scoping. *)
-val well_scoped_ty' : (TT.ty -> bool) m
+val close_tm_ : TT.tm_ -> TT.tm_ option m

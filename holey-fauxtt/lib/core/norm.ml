@@ -1,8 +1,12 @@
+type head =
+  | Var of TT.var
+  | Meta of TT.var
+
 type tm =
   | Type
   | Prod of TT.ty * TT.ty TT.binder
   | Lambda of TT.ty * TT.tm TT.binder
-  | Spine of TT.var * TT.tm list
+  | Spine of head * TT.tm list
 
 type ty = Ty of tm
 
@@ -22,9 +26,16 @@ let rec norm_tm' ~strategy e =
 
   | TT.Var x ->
     begin
-      Context.lookup_def x >>= function
-      | None -> return e
-      | Some e -> norm_tm' ~strategy e
+      Context.lookup_var x >>= function
+      | None, _ -> return e
+      | Some e, _ -> norm_tm' ~strategy e
+    end
+
+  | TT.Meta x ->
+    begin
+      Context.lookup_meta x >>= function
+      | None, _ -> return e
+      | Some e, _ -> norm_tm' ~strategy e
     end
 
   | TT.Let (e1, t, e2) ->
@@ -76,9 +87,10 @@ let norm_tm e =
 
   | TT.Lambda (t, e) -> return (Lambda (t, e))
 
-  | TT.(Var _ | Apply _) as e ->
+  | TT.(Var _ | Meta _ | Apply _) as e ->
      let rec fold es = function
-       | TT.Var x -> x, es
+       | TT.Var x -> Var x, es
+       | TT.Meta x -> Meta x, es
        | TT.Apply (e1, e2) -> fold (e2 :: es) e1
        | TT.(Let _ | Type | Prod _ | Lambda _) -> assert false
      in

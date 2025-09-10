@@ -21,6 +21,9 @@ let rec tm ?max_level ~penv e ppf =
   | TT.Var x ->
      Format.fprintf ppf "%s" (Bindlib.name_of x)
 
+  | TT.Meta x ->
+     Format.fprintf ppf "?%s" (Bindlib.name_of x)
+
   | TT.Let (e1, _, e2) ->
      let (x, e2, penv') = Bindlib.unbind_in penv e2 in
      Util.Print.print ?max_level ~at_level:Level.let_binding ppf "let@ %s :=@ %t@ in@ %t"
@@ -33,14 +36,14 @@ let rec tm ?max_level ~penv e ppf =
 
   | TT.Lambda (t, e) ->
      print_quantifier ?max_level ~at_level:Level.highest ~penv as_lambda
-       (Util.Print.char_lambda ()) tm t e ppf
+       (Util.Print.char_lambda ()) (" " ^ Util.Print.char_darrow ()) tm t e ppf
 
   | TT.Apply (e1, e2) ->
      print_apply ?max_level ~penv e1 e2 ppf
 
   | TT.Prod (u, t) ->
      print_quantifier ?max_level ~at_level:Level.highest ~penv as_prod
-       (Util.Print.char_prod ()) ty u t ppf
+       (Util.Print.char_prod ()) "," ty u t ppf
 
 
 and ty ?max_level ~penv (Ty t) ppf = tm ?max_level ~penv t ppf
@@ -49,18 +52,18 @@ and print_quantifier :
       'a . ?max_level:Level.t -> at_level:Level.t ->
       penv:_ ->
       (penv:_ -> 'a -> (TT.var * TT.ty * 'a * _) option) ->
-      string ->
+      string -> string ->
       (?max_level:Level.t -> penv:_ -> 'a -> Format.formatter -> unit) ->
       TT.ty -> 'a TT.binder -> Format.formatter -> unit
   =
-  fun ?max_level ~at_level ~penv as_quant quant print_v u v ppf ->
+  fun ?max_level ~at_level ~penv as_quant quant comma print_v u v ppf ->
   let rec print_rest ~penv v =
     match as_quant ~penv v with
     | None ->
-       Util.Print.print ppf ",@ %t" (print_v ~penv v) ;
+       Util.Print.print ppf "%s@ %t" comma (print_v ~penv v) ;
 
     | Some (x, u, v, penv') ->
-       Format.fprintf ppf ",@ %s@;<1 -4>(%s : %t)" quant (Bindlib.name_of x) (ty ~penv u) ;
+       Format.fprintf ppf "%s@ %s@;<1 -4>(%s : %t)" comma quant (Bindlib.name_of x) (ty ~penv u) ;
        print_rest ~penv:penv' v
   in
   let printer ppf =

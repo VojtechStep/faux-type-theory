@@ -1,19 +1,6 @@
 axiom A : Type
-axiom P : A → Type
-axiom f : ∏ (x : A), P x
-
-infer λ (a : A) ⇒ hole X : Type in (λ (x : X) ⇒ x) a
-
-infer hole X : Type in λ (a : A) ⇒ (λ (x : X) ⇒ x) a
-
-infer hole g : A → A → A in λ (a b : A) ⇒ unify g a b with b in g
-
-infer λ (a b : A) ⇒ hole g : A → A → A in unify g a b with b in g
-
-infer λ (a b : A) ⇒ hole g : ∏ (x y : A), P x in unify g a b with f a in g
-
-infer hole h : A → A → A in λ (x y : A) ⇒ unify h x y with x in h
-
-infer hole h : A → A → A in λ (x y : A) ⇒ unify h x y with x in y
-
-
+axiom a : A
+infer (λ (x : ?X) ⇒ x) a
+infer λ (B : Type) (b : B) ⇒ (λ (x : ?X) ⇒ x) b
+infer let B := A in λ (b : B) ⇒ (λ (x : ?X) ⇒ x) b
+infer λ (B : Type) (f : B → B) (x : ?X) ⇒ f x

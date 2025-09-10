@@ -1,9 +1,13 @@
 (** Weak-head normal term. *)
+type head =
+  | Var of TT.var
+  | Meta of TT.var
+
 type tm =
   | Type
   | Prod of TT.ty * TT.ty TT.binder
   | Lambda of TT.ty * TT.tm TT.binder
-  | Spine of TT.var * TT.tm list
+  | Spine of head * TT.tm list
 
 type ty = Ty of tm
 

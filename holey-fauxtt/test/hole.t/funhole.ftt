@@ -2,4 +2,4 @@ axiom A : Type
 axiom a : A
 axiom i : A → A
 
-infer hole X : Type in λ (f : X) ⇒ i (f a)
+infer λ (f : ?X) ⇒ i (f a)

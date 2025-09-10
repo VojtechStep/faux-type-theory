@@ -5,6 +5,7 @@ open Util
 (** Term *)
 type tm =
   | Var of var (** A free variable *)
+  | Meta of var (** meta-variable (hole) *)
   | Let of tm * ty * tm binder (** A let binding *)
   | Type (** the type of types *)
   | Prod of ty * ty binder (** dependent product *)
@@ -33,6 +34,8 @@ let box_binder = Bindlib.box_binder
 
 let var_ = Bindlib.box_var
 
+let meta_ x = Bindlib.box (Meta x)
+
 let let_ = Bindlib.box_apply3 (fun e1 t e2 -> Let (e1, t, e2))
 
 let type_ = Bindlib.box Type
@@ -55,6 +58,8 @@ let apply_ =
 let rec lift_tm = function
 
   | Var v -> var_ v
+
+  | Meta v -> meta_ v
 
   | Let (e1, t, e2) ->
      let_ (lift_tm e1) (lift_ty t) (box_binder lift_tm e2)

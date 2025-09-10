@@ -65,7 +65,7 @@ and equal_tm e1 e2 =
   | Norm.(Type | Prod _ | Lambda _ | Spine _), _ ->
     return false
 
-and equal_spine x1 es1 x2 es2 =
+and equal_spine h1 es1 h2 es2 =
   let rec fold t es1 es2 =
     match es1, es2 with
     | [], [] -> return true
@@ -80,10 +80,21 @@ and equal_spine x1 es1 x2 es2 =
        end
   in
 
-  (return @@ Bindlib.eq_vars x1 x2) &&&
+  let equal_heads h1 h2 =
+    match h1, h2 with
+    | Norm.Var x1, Norm.Var x2 -> Bindlib.eq_vars x1 x2
+    | Norm.Meta x1, Norm.Meta x2 -> Bindlib.eq_vars x1 x2
+    | Norm.Var _, Norm.Meta _
+    | Norm.Meta _, Norm.Var _ -> false
+  in
+
+  (return @@ equal_heads h1 h2) &&&
   begin
-    let* t = Context.lookup_ty x1 in
-    fold t es1 es2
+      match h1 with
+      | Norm.Var x1 ->
+         let* _, t = Context.lookup_var x1 in fold t es1 es2
+      | Norm.Meta x1 ->
+         let* _, t = Context.lookup_meta x1 in fold t es1 es2
   end
 
 (** Compare two types. *)

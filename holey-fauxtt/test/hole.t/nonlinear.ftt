@@ -1,3 +1,0 @@
-axiom A : Type
-
-infer hole f : A → A → A in λ (x : A) ⇒ unify f x x with x in f

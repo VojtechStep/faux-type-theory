@@ -2,16 +2,6 @@
 
 open Context.Monad
 
-(* Monadic conjunction *)
-let ( &&& ) c1 c2 =
-  let* b = c1 in
-  if b then c2 else return false
-
-(* Monadic disjunction *)
-let ( ||| ) c1 c2 =
-  let* b = c1 in
-  if b then return true else c2
-
 (** Unify expressions [e1] and [e2] at type [ty]? *)
 let rec unify_tm_at e1 e2 ty =
   (* short-circuit *)
@@ -39,7 +29,7 @@ let rec unify_tm_at e1 e2 ty =
   end
 
 (** Structurally unify weak head-normal forms of terms [e1] and [e2]. *)
-and unify_tm e1 e2 =
+and unify_tm e1 e2 : bool Context.m =
   let* e1' = Norm.norm_tm e1 in
   let* e2' = Norm.norm_tm e2 in
   match e1', e2' with
@@ -54,51 +44,55 @@ and unify_tm e1 e2 =
       Context.with_var x t1 (unify_ty u1 u2)
     end
 
-  | Norm.Lambda _, Norm.Lambda _  ->
+  | Norm.Spine (Var x1, es1), Norm.Spine (Var x2, es2) when Bindlib.eq_vars x1 x2 ->
+     let* _, t = Context.lookup_var x1 in
+     unify_spine t es1 es2
+
+  | Norm.Spine (Meta x1, es1), Norm.Spine (Meta x2, es2) ->
+     if Bindlib.eq_vars x1 x2 then
+       let* _, t = Context.lookup_meta x1 in
+       unify_spine t es1 es2
+     else
+       (unify_meta x1 es1 e2) ||| (unify_meta x2 es2 e1)
+
+  | Norm.Spine (Meta x1, es1), Norm.(Type | Prod _ | Spine (Var _, _)) ->
+     unify_meta x1 es1 e2
+
+  | Norm.(Type | Prod _ | Spine (Var _, _)), Norm.Spine (Meta x2, es2) ->
+     unify_meta x2 es2 e1
+
+  | Norm.Lambda _, _ | _, Norm.Lambda _  ->
     (* We should never have to compare two lambdas, as that would mean that the
        type-directed phase did not figure out that these have product types. *)
     assert false
 
-  | Norm.Spine (x1, es1), Norm.Spine (x2, es2) ->
-     let* b1 = Context.is_meta x1 in
-     let* b2 = Context.is_meta x2 in
-
-     if b1 && not (Bindlib.eq_vars x1 x2) then
-       unify_meta x1 es1 e2
-
-     else if b2 && not (Bindlib.eq_vars x1 x2) then
-       unify_meta x2 es2 e1
-
-     else
-       if not (Bindlib.eq_vars x1 x2) then
-         return false
-       else begin
-           let rec fold t es1 es2 =
-             match es1, es2 with
-             | [], [] -> return true
-             | ([], _::_) | (_::_, []) -> return false
-
-             | e1 :: es1, e2 :: es2 ->
-                Norm.as_prod t >>= function
-                | None -> return false
-                | Some (t, u) ->
-                   begin
-                     unify_tm_at e1 e2 t >>= function
-                     | false -> return false
-                     | true -> fold (Bindlib.subst u e1) es1 es2
-                   end
-           in
-           let* t = Context.lookup_ty x1 in
-           fold t es1 es2
-         end
-
-  | Norm.(Type | Prod _ | Lambda _ | Spine _), _ ->
+  | Norm.(Type | Prod _ | Spine _), Norm.(Type | Prod _ | Spine _) ->
     return false
 
 and unify_ty (TT.Ty ty1) (TT.Ty ty2) =
   unify_tm_at ty1 ty2 TT.(Ty Type)
 
-and unify_meta x es e' =
+and unify_spine t es1 es2 =
+  let rec fold t es1 es2 =
+    match es1, es2 with
+
+    | ([], _::_) | (_::_, []) -> return false
+
+    | [], [] -> return true
+
+    | e1 :: es1, e2 :: es2 ->
+       Norm.as_prod t >>= function
+       | None -> return false
+       | Some (t, u) ->
+          begin
+            unify_tm_at e1 e2 t >>= function
+            | false -> return false
+            | true -> fold (Bindlib.subst u e1) es1 es2
+          end
+  in
+  fold t es1 es2
+
+and unify_meta mv es e' =
   let rec abstract t ys = function
     | [] -> return @@ Some (TT.lift_tm e')
     | e :: es ->
@@ -121,7 +115,15 @@ and unify_meta x es e' =
 
       end
   in
-  let* t = Context.lookup_ty x in
+  let* _, t = Context.lookup_meta mv in
   abstract t [] es >>= function
   | None -> return false
-  | Some e' -> Context.define x (TT.unbox e')
+  | Some e_ ->
+     begin
+       Context.close_tm_ e_ >>= function
+       | None -> return false
+       | Some e_ ->
+          let e = TT.unbox e_ in
+          let* _ = Context.define mv e in
+          return true
+     end
