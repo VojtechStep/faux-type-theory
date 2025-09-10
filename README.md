@@ -14,7 +14,7 @@ presentation suitable for implementation.
 
 Material:
 
-* **[Slides with speaker notes](./slides/PL-for-PA-lecture-1-handout.pdf)**
+* **[Lecture 1 slides](./slides/PL-for-PA-lecture-1-handout.pdf)**
 
 ## Lecture 2: A monadic type checker
 
@@ -23,7 +23,7 @@ The core type checker uses *monadic-style* implementaion that encapsulates the c
 
 Material:
 
-* **[Slides with speaker notes](./slides/PL-for-PA-lecture-2-handout.pdf)**
+* **[Lecture 2 slides](./slides/PL-for-PA-lecture-2-handout.pdf)**
 * **Implementation:** [`monadic-fauxtt`](./monadic-fauxtt)
 
 ## Lecture 3: Holes and unification
@@ -34,7 +34,15 @@ We will look at a rudimentary implementation with holes that fills them in using
 
 Material:
 
-* **[Slides without speaker notes](slides/PL-for-PA-lecture-3-handout.pdf)**
+* **[Lecture 3 slides](slides/PL-for-PA-lecture-3-handout.pdf)**
 * **Implementation:** [`holey-fauxtt`](./holey-fauxtt)
 
 ## Lecture 4: Variables as computational effects
+
+After a review of algebraic effects and handlers, we implement variables and meta-variables as computational effects.
+Doing so allows us to remove the monadic-style code and replace it with direct-style naive code.
+
+Material:
+
+* **[Lecture 4 slides](slides/PL-for-PA-lecture-4-handout.pdf)**
+* **Implementation:** [`algebraic-fauxtt`](./algebraic-fauxtt)
