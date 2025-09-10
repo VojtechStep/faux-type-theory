@@ -1,0 +1,507 @@
+\documentclass[11pt,aspectratio=169,fleqn]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfpages}
+\usepackage{xcolor}
+\usepackage{xypic}
+\usepackage{upgreek}
+\usepackage{graphicx}
+\usepackage{mathpartir}
+\usepackage{listings}
+
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{txfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+%\usepackage{pgfpages}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\mode<presentation>
+% \Usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+% These slides also contain speaker notes. You can print just the slides,
+% just the notes, or both, depending on the setting below. Comment out the want
+% you want.
+
+\setbeameroption{hide notes} % Only slides
+%\setbeameroption{show only notes} % Only notes
+%\setbeameroption{show notes on second screen} % Both
+
+% Give a slight yellow tint to the notes page
+\setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+% remove crazy amounts of spacing around displayed formulas
+
+\makeatletter
+\g@addto@macro\normalsize{
+  \setlength{\abovedisplayskip}{0pt}
+  \setlength{\belowdisplayskip}{0pt}
+}
+\makeatother
+
+% listings settings
+
+\lstset{
+ basicstyle=\ttfamily,
+}
+
+\lstdefinelanguage{fauxtt}{
+  keywords={axiom,check,def,eval,load},
+  sensitive=true,
+  morestring=[b]" % strings in double quotes
+}
+
+\lstdefinestyle{fauxttstyle}{
+  language=fauxtt,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true,
+  literate={Π}{{$\Uppi$}}1
+           {∏}{{$\Uppi$}}1
+           {λ}{{$\uplambda$}}1
+           {→}{{$\to$}}2
+           {⇒}{{$\Rightarrow$}}2
+}
+
+\lstnewenvironment{fauxttlisting}
+  {\lstset{style=fauxttstyle}}
+  {}
+
+\lstdefinelanguage{OCaml}{
+  keywords={let, in, rec, type, match, with, when, function, module, open, fun, and, as, if, then, else, val, exception, try, of, mutable},
+  sensitive=true,
+  comment=[s]{(*}{*)},
+  morestring=[b]",
+}
+
+\lstdefinestyle{ocamlstyle}{
+  language=OCaml,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true
+}
+
+\lstnewenvironment{ocamllisting}
+  {\lstset{style=ocamlstyle}}
+  {}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% MACROS
+
+%% Typing judgements & rules
+\newcommand{\emptyctx}{{\cdot}} % empty context
+\newcommand{\typingrule}[2]{\infer{#1}{#2}}
+\newcommand{\of}{\,{:}\,} % typing of a variable in a context
+\newcommand{\ofLet}[3]{#1 \,{:}{=}\, #2 \,{:}\ #3} % typing of a variable in a context
+\newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\checkTy}{\leftsquigarrow}
+\newcommand{\inferTy}{\rightsquigarrow}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}\,}
+\newcommand{\lam}[1]{\lambda (#1).\,}
+
+\newcommand{\xlam}[1]{\lambda #1.\,}
+
+\newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
+
+\newcommand{\nfEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{nf}}{\simeq}}}
+%\newcommand{\neuEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{neu}}{\simeq}}}
+
+\newcommand{\norm}{\hookrightarrow}
+
+%%%%%%% GROUP: named inference rules
+
+% the style for rule names
+\newcommand{\rulename}[1]{\textnormal{\textsc{#1}}}
+
+% use \rref{...} to refer to a rule in text
+\newcommand{\rref}[1]{\hyperlink{rule:#1}{\rulename{#1}}}
+
+% the color of rule names
+\definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+\definecolor{presupColor}{rgb}{0,0,1}
+\definecolor{grayoutColor}{rgb}{0.7,0.7,0.7}
+
+% named inference rule
+\newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
+
+
+\newcommand{\codeRef}[1]{\href{https://github.com/andrejbauer/faux-type-theory/blob/main/algebraic-fauxtt/#1}{\texttt{#1}}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Programming language techniques \\for proof assistants\\[2ex]Lecture 4\\Variables as computational effects}
+\author{Andrej Bauer\\University of Ljubljana}
+\date{}
+\begin{document}
+
+
+\begin{frame}
+\hbox{}\vfil
+
+\titlepage
+
+\vfil
+
+\begin{center}
+\footnotesize
+International School on Logical Frameworks and Proof Systems Interoperability \\
+Université Paris--Saclay, September 8--12, 2025
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Overview}
+
+  \begin{itemize}
+  \item \textcolor{grayoutColor}{Lecture 1: From declarative to algorithmic type theory}
+  \item \textcolor{grayoutColor}{Lecture 2: A monadic type checker}
+  \item \textcolor{grayoutColor}{Lecture 3: Holes and unification}
+  \item
+    Lecture 4: Variables as computational effects
+    %
+    \begin{itemize}
+    \item Algebraic operations and handlers
+    \item Variables as effects
+    \item A handler-based type checker
+    \end{itemize}
+  \end{itemize}
+
+  \note[item]{These slides have scant speaker notes because I spent my time inventing variables as computational effects.}
+
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 4
+
+    \bigskip
+
+    \Large
+    Variables as computational effects
+  \end{center}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Before I forget\dots}
+
+  We have postdoc positions in Ljubljana. Topics:
+  %
+  \begin{itemize}
+  \item Type theory
+  \item AI and formalized math
+  \item Constructive and synthetic mathematics
+  \item Programming languages
+  \end{itemize}
+  %
+  Talk to me if you are interested.
+\end{frame}
+
+\begin{frame}
+  \frametitle{A bird's-eye view of algebraic effects and handlers}
+
+  \begin{itemize}
+  \item Algebraic theory: operations \& equations.
+  \item\pause
+    An $n$-ary operation $\mathsf{op} : C^n \to C$ on carrier $C$:
+    %
+    \begin{itemize}
+    \item A constant $c \in C$ is a $0$-ary operation.
+    \item Addition ${+} : \mathbb{R}^2 \to \mathbb{R}$ is a $2$-ary operation.
+    \end{itemize}
+  \item \pause
+    And $A$-ary $\mathsf{op} : C^A \to C$:
+    % 
+    \begin{itemize}
+    \item $\int_0^1 : \mathbb{R}^{[0,1]} \to \mathbb{R}$ is an $[0,1]$-ary operation on~$\mathbb{R}$.
+    \item $\forall_A : \mathsf{Prop}^A \to A$ is an $A$-ary operation on $\mathsf{Prop}$.
+    \end{itemize}
+  \item \pause
+    $P$-parameterized operation: $\mathsf{op} : P \times C^n \to C$:
+    % 
+    \begin{itemize}
+    \item Scalar multiplication of vectors ${\cdot} : \mathbb{R} \times V^1 \to V$
+    \item Consing a list $\mathsf{cons} : P \times \mathsf{List}\,P \to \mathsf{List}\,P$
+    \end{itemize}
+  \item \pause
+    $A$-ary $P$-parameterized operation on $C$:
+    %
+    \begin{equation*}
+      \mathsf{op} : P \times C^A \to C.
+    \end{equation*}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Example -- state as an algebraic theory}
+
+  \begin{itemize}
+  \item Fix a set of states $S$.
+  \item Operations:
+    \begin{itemize}
+    \item $\mathtt{get} : C^S \to C$
+    \item $\mathtt{put} : S \times C \to C$
+    \end{itemize}
+  \item \pause
+    Equations:
+    %
+    \begin{align*}
+      \mathtt{get}(\xlam{x} \mathtt{get}(\xlam{y} \kappa)) &=
+      \mathtt{get}(\xlam{z} \kappa[z/x, z/y])
+      \\
+      \mathtt{get}(\xlam{x} \mathtt{put}(x, \kappa)) &=
+      \mathsf{get}(\xlam{x} \kappa)
+      \\
+      \mathsf{put}(x, \mathtt{get}(\xlam{y} \kappa)) &=
+      \mathsf{put}(x, \kappa[x/y])
+      \\
+      \mathtt{put}(x, \mathtt{put}(y, \kappa)) &=
+      \mathsf{put}(y, \kappa)
+    \end{align*}
+  \item \pause
+    Examples: I/O, exceptions, non-determinism, probabilistic computation, transactional memory,
+    co-operative multi-threading, delimited continuations, \dots
+  \item Non-example: (undelimited) continuations
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Algebraic handlers}
+
+  \begin{itemize}
+  \item Math: a handler is a homomorphism from a free algebra.
+  \item \pause
+    Algebraic handlers generalize exception handlers:
+    \begin{itemize}
+    \item exception handler: intercept exception and do something,
+    \item algebraic handler: intercept \emph{operation}, do something, possibly \emph{resume} execution.
+    \end{itemize}
+    ``Algebraic operations are resumable exceptions.''
+  \item \pause
+    Programming tool:
+    %
+    \begin{itemize}
+    \item modify effects: redirect output, log memory access, implement transactions, \ldots
+    \item implement custom effects.
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Example in OCaml 5: write-once state}
+
+\footnotesize
+\begin{ocamllisting}
+type _ Effect.t +=
+  | Get : unit -> int Effect.t
+  | Put : int -> unit Effect.t
+
+let get () = perform (Get ())
+let put s = perform (Put s)
+
+type mode = Initial | Modified
+exception InvalidWrite
+
+let with_state (s : int) (c : unit -> 'a) =
+  let r = ref (Initial, s) in
+  try
+    c ()
+  with
+    | effect (Get ()), k -> continue k (snd !r)
+    | effect (Put s), k ->
+       (match !r with
+        | (Initial, _) -> r := (Modified, s) ; continue k ()
+        | (Modified, _) -> raise InvalidWrite)
+\end{ocamllisting}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Example in OCaml 5: write-once state (continued)}
+
+\footnotesize
+\begin{ocamllisting}
+let eightyeight =
+  with_state 42
+    (fun () ->
+      let a = get () in
+      put (a + 4) ;
+      a + get ())
+
+ let problematic =
+  with_state 42
+    (fun () ->
+      let a = get () in
+      put (a + 4) ;
+      if a * a > 666 then put 10 ;
+      a + get ())
+\end{ocamllisting}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Variables as algebraic effects}
+
+  \begin{itemize}
+  \item We remove the monad \lstinline{Context.m} and write code in direct style.
+  \item Algebraic operations for variables:
+{\small
+\begin{ocamllisting}
+type _ Effect.t +=
+ | LookupVar: TT.var -> (TT.tm option * TT.ty) Effect.t
+ | LookupIdent: string -> TT.var option Effect.t
+ | TopExtend: (string * TT.tm option * TT.ty) -> unit Effect.t
+\end{ocamllisting}
+}
+  \item \pause
+    Handlers for variables:
+    %
+    \begin{itemize}
+    \item \lstinline{Context.handle_context} -- handle global variables at the top level
+    \item \lstinline{Context.with_ident_var} -- handle \emph{one} local variable
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{A handler for global variables}
+
+Top level is wrapped by a handler for globally defined variables:
+
+\begin{ocamllisting}
+let handle_context c =
+  let ctx = ref initial in
+  try
+    c ()
+  with
+   | effect (LookupVar v), k -> ...
+   | effect (LookupIdent x), k -> ...
+   | effect (TopExtend (x, def, ty)), k -> ...
+\end{ocamllisting}
+
+This is just a standard state handler.
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{A handler for local variables}
+
+  \begin{itemize}
+  \item Local variables are introduced by \texttt{let}, $\Uppi$ and $\uplambda$.
+  \item \pause
+    A handler for a single variable:
+    %
+{\footnotesize
+\begin{ocamllisting}
+let with_ident_var x v ?def t c =
+  try
+    c ()
+  with
+  | effect (LookupIdent y), k when String.equal x y ->
+     continue k (Some v)
+  | effect (LookupVar w), k when Bindlib.eq_vars v w ->
+     continue k (def, t)
+\end{ocamllisting}
+}
+  \item \pause
+    The handler intercepts operations pertaining \emph{only} to \lstinline{x} and \lstinline{v}.
+  \item Other variables are handled by outer handlers.
+  \item Handlers are nested, as many as there are local variables.
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Meta-variables as algebraic effects}
+
+  \begin{itemize}
+\item Algebraic operations for meta-variables:
+    {\small
+\begin{ocamllisting}
+type _ Effect.t +=
+    | LookupMeta : TT.var -> (TT.tm option * TT.ty) Effect.t
+    | FreshMeta_ : string * TT.ty_ -> TT.tm_ Effect.t
+    | SetMeta_ : TT.var * TT.tm_ -> bool Effect.t
+\end{ocamllisting}
+    }
+
+  \item \pause
+    \lstinline{Context.handle_metas} -- handles meta-variables:
+    %
+    \begin{itemize}
+    \item the handler is wrapped around each top-level command,
+    \item consequently, each top-level command has its set of meta-variables
+    \end{itemize}
+  \item \pause
+    Additionally, \lstinline{Context.with_ident_var} intercepts \lstinline{FreshMeta_} and \lstinline{SetMeta_} to ensure correct interaction with the local variable.
+  \item For details, see \codeRef{lib/core/context.ml}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Conclusion}
+
+  \begin{itemize}
+  \item Monadic type checker:
+    \begin{itemize}
+    \item A reader monad for variables
+    \item Monadic code helps reduce clutter
+    \end{itemize}
+  \item Monadic type checker with holes:
+    \begin{itemize}
+    \item A combination of reader and state monads
+    \item Monadic code does not help much with meta-variables
+    \end{itemize}
+  \item Algebraic type checker:
+    \begin{itemize}
+    \item Direct-style code
+    \item Cleaner implementation of meta-variables
+    \item Potential for new implementation techniques
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Further reading}
+
+  \begin{itemize}
+  \item Andrej Bauer: \href{https://doi.org/10.48550/arXiv.1807.05923}{What is algebraic about algebraic effects and handlers?} (lecture notes), arXiv:1807.05923, March 2019.
+
+  \item Matija Pretnar: \href{https://doi.org/10.1016/j.entcs.2015.12.003}{An Introduction to Algebraic Effects and Handlers} (invited tutorial paper),
+    Electronic Notes in Theoretical Computer Science, Volume 319, 21 December 2015, Pages 19--35.
+
+  \item Bob Atkey: \href{https://bentnib.org/posts/2015-04-19-algebraic-approach-typechecking-and-elaboration.html}{An Algebraic Approach to Typechecking and Elaboration}, Scottish Programming Languages Seminar, February 2015.
+
+  \item Conor McBride: \href{https://github.com/pigworker/Samizdat/blob/main/EffW.hs}{An Effects-and-Handlers Implementation of Hindley-Milner Typechecking}, 2024.
+  \end{itemize}
+\end{frame}
+
+
+\end{document}
