@@ -1,0 +1,407 @@
+\documentclass[handout,10pt,aspectratio=169]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfpages}
+\usepackage{xcolor}
+\usepackage{xypic}
+\usepackage{upgreek}
+\usepackage{graphicx}
+\usepackage{mathpartir}
+\usepackage{listings}
+
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{txfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+%\usepackage{pgfpages}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\mode<presentation>
+% \Usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+% These slides also contain speaker notes. You can print just the slides,
+% just the notes, or both, depending on the setting below. Comment out the want
+% you want.
+
+\setbeameroption{hide notes} % Only slides
+%\setbeameroption{show only notes} % Only notes
+%\setbeameroption{show notes on second screen} % Both
+
+% Give a slight yellow tint to the notes page
+\setbeamertemplate{note page}{\pagecolor{yellow!5}\insertnote}\usepackage{palatino}
+
+\lstset{
+ basicstyle=\ttfamily,
+}
+
+\lstdefinelanguage{fauxtt}{
+  keywords={axiom,check,def,eval,load},
+  sensitive=true,
+  morestring=[b]" % strings in double quotes
+}
+
+\lstdefinestyle{fauxttstyle}{
+  language=fauxtt,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true,
+  literate={Π}{{$\Uppi$}}1
+           {∏}{{$\Uppi$}}1
+           {λ}{{$\uplambda$}}1
+           {→}{{$\to$}}2
+           {⇒}{{$\Rightarrow$}}2
+}
+
+\lstnewenvironment{fauxttlisting}
+  {\lstset{style=fauxttstyle}}
+  {}
+
+\lstdefinelanguage{OCaml}{
+  keywords={let, in, rec, type, match, with, function, module, open, fun, and, as, if, then, else, val, exception, try, of, mutable},
+  sensitive=true,
+  comment=[s]{(*}{*)},
+  morestring=[b]",
+}
+
+\lstdefinestyle{ocamlstyle}{
+  language=OCaml,
+  basicstyle=\ttfamily,
+  numbers=none,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=1ex,
+  belowskip=1ex,
+  breaklines=true
+}
+
+\lstnewenvironment{ocamllisting}
+  {\lstset{style=ocamlstyle}}
+  {}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% MACROS
+
+%% Typing judgements & rules
+\newcommand{\emptyctx}{{\cdot}} % empty context
+\newcommand{\typingrule}[2]{\infer{#1}{#2}}
+\newcommand{\of}{\,{:}\,} % typing of a variable in a context
+\newcommand{\ofLet}[3]{#1 \,{:}{=}\, #2 \,{:}\ #3} % typing of a variable in a context
+\newcommand{\types}{\vdash} % the turnstile
+
+\newcommand{\checkTy}{\leftsquigarrow}
+\newcommand{\inferTy}{\rightsquigarrow}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{\Uppi_{(#1)}\,}
+\newcommand{\lam}[1]{\lambda (#1).\,}
+
+\newcommand{\letin}[3]{\mathsf{let}\,#1\,{{:}{=}}\,#2\,\mathsf{in}\,#3}
+
+\newcommand{\nfEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{nf}}{\simeq}}}
+%\newcommand{\neuEquiv}{\mathrel{\overset{\scriptscriptstyle\mathrm{neu}}{\simeq}}}
+
+\newcommand{\norm}{\hookrightarrow}
+
+%%%%%%% GROUP: named inference rules
+
+% the style for rule names
+\newcommand{\rulename}[1]{\textnormal{\textsc{#1}}}
+
+% use \rref{...} to refer to a rule in text
+\newcommand{\rref}[1]{\hyperlink{rule:#1}{\rulename{#1}}}
+
+% the color of rule names
+\definecolor{rulenameColor}{rgb}{0.5,0.5,0.5}
+
+\definecolor{presupColor}{rgb}{0,0,1}
+\definecolor{grayoutColor}{rgb}{0.7,0.7,0.7}
+
+% named inference rule
+\newcommand{\inferenceRule}[3]{\inferrule*[lab={\hypertarget{rule:#1}{\rulename{\footnotesize\color{rulenameColor}#1}}}]{#2}{#3}}
+
+
+\newcommand{\codeRef}[1]{\href{https://github.com/andrejbauer/faux-type-theory/blob/main/holey-fauxtt/#1}{\texttt{#1}}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Programming language techniques \\for proof assistants\\[2ex]Lecture 3\\Holes and unification}
+\author{Andrej Bauer\\University of Ljubljana}
+\date{}
+\begin{document}
+
+
+\begin{frame}
+\hbox{}\vfil
+
+\titlepage
+
+\vfil
+
+\begin{center}
+\footnotesize
+International School on Logical Frameworks and Proof Systems Interoperability \\
+Université Paris--Saclay, September 8--12, 2025
+\end{center}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Overview}
+
+  \begin{itemize}
+  \item \textcolor{grayoutColor}{Lecture 1: From declarative to algorithmic type theory}
+  \item \textcolor{grayoutColor}{Lecture 2: A monadic type checker}
+  \item
+    Lecture 3: Holes and unification
+    %
+    \begin{itemize}
+    \item Postponed computations as holes
+    \item Unification
+    \item A holey type checker
+    \end{itemize}
+  \item
+    \textcolor{grayoutColor}{Lecture 4: Variables as computational effects}
+  \end{itemize}
+
+  \note[item]{These slides have scant speaker notes because I spent my time debugging meta-variables.}
+
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Huge Lecture 3
+
+    \bigskip
+
+    \Large
+    Holes and unification
+  \end{center}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{What are holes?}
+
+  \begin{itemize}
+  \item A \textbf{hole} is an unfinished or missing piece of formalization.
+  \item A hole is eventually \textbf{filled in}.
+  \item A hole does \emph{not} block the proof checker.
+  \pause
+  \item Examples:
+    \begin{itemize}
+    \item Interactive holes: created and filled in by the user
+    \item Implicit arguments: created by type checker, filled in by unification
+    \end{itemize}
+  \pause
+  \item Holes may be created by the user or by the machine:
+    \begin{itemize}
+    \item The user types \lstinline{?} in Agda to create an interactive hole
+    \item The user types \lstinline{_} to create a hole that should be filled automatically
+    \item The type-checking algorithm inserts holes in place of implicit arguments
+    \end{itemize}
+  \pause
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Holes as meta-variables}
+
+  \begin{itemize}
+  \item In type theory, we represent holes as \textbf{meta-variables}.
+  \item When a hole is made we introduce a fresh meta-variable:
+    \begin{itemize}
+    \item When a meta-variable is created, we must know its type.
+    \item Consequently, holes may appear only in \emph{checking} positions.
+    \end{itemize}
+  \pause
+  \item When a hole is filled with a term, we substitute it for the meta-variable:
+    \begin{itemize}
+    \item Caveat: the filling term may be discovered in a context that is different
+      from that of the meta-variable.
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Example}
+
+
+  \begin{enumerate}
+  \item Can we fill the hole \lstinline{?H}?
+\begin{fauxttlisting}
+  λ (A : Type) (a : A) ⇒ (λ (x : ?H) ⇒ x) a
+\end{fauxttlisting}
+    %
+    \pause
+    Answer: yes, \lstinline{?H} must be \lstinline{A}.
+  \item\pause
+    Can we fill the hole \lstinline{?G}?
+\begin{fauxttlisting}
+  λ (x : ?G) (A : Type) (f : A → Type) ⇒ f x
+\end{fauxttlisting}
+    %
+    \pause
+    Answer: no, \lstinline{?G} must be \lstinline{A}, which is out of scope.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Meta-variables and contexts}
+
+  Out strategy:
+  %
+  \begin{itemize}
+  \item Meta-variables have \emph{closed} types.
+  \item They must be filled with \emph{closed} terms.
+  \end{itemize}
+  \pause
+  %
+  Example:
+  %
+  \begin{itemize}
+  \item Consider \lstinline[style=fauxttstyle]{λ (A : Type) (a : A)  ⇒ (λ (x : ?H)  ⇒ x) a}.
+  \item \pause The hole \lstinline{?H}, appears in context $A \of \Type, a \of A$ and has type $\Type$.
+  \item \pause We introduce a meta-variable $H$ of type $\prd{A'\of Type} \prd{a' \of A'} \Type$.
+  \item \pause We replace \lstinline{?H} with $H\, A\, a$ to obtain
+    $\lam{A \of \Type} \lam{a : A} (\lam{x \of H\,A\,a} x) a$
+  \item \pause Unification will solve $H\,A\,a \equiv_\Type A$ to give $H \equiv \lam{A \of \Type} \lam{a \of A} A$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Implementation}
+
+  \begin{itemize}
+  \item \codeRef{lib/core/TT.ml}:
+\begin{fauxttlisting}
+type tm =
+  | Var of var
+  | Meta of var
+  | Let of tm * ty * tm binder
+  | Type
+  | Prod of ty * ty binder
+  | Lambda of ty * tm binder
+  | Apply of tm * tm
+\end{fauxttlisting}
+\item \codeRef{lib/core/context.ml}:
+\begin{fauxttlisting}
+type t =
+  { idents : TT.var IdentMap.t
+  ; vars : (TT.tm option * TT.ty) VarMap.t
+  ; locals : TT.var list
+  ; metas : (TT.tm option * TT.ty) VarMap.t
+  }
+\end{fauxttlisting}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{The context monad}
+
+  \begin{itemize}
+  \item Variables behave like a reader monad
+  \item Meta-variables behave like the state monad
+  \item \pause
+    The new monad:
+\begin{fauxttlisting}
+type 'a m = t -> t * 'a
+
+module Monad =
+struct
+  let ( let* ) c1 c2 ctx =
+    let ctx, v1 = c1 ctx in
+    c2 v1 ctx
+
+  let ( >>= ) = ( let* )
+
+  let return v t = (t, v)
+\end{fauxttlisting}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Unification}
+
+  \begin{itemize}
+  \item Proceed as in our original equality checking algorithm.
+  \item \pause During normalization phase, suppose we encounter
+    %
+    $
+      M \, e_1 \cdots e_n \equiv_A e
+    $
+    %
+    where:
+    %
+    \begin{itemize}
+    \item $M$ is an unsolved meta-variable,
+    \item $e_i$'s normalize to \emph{distinct} variables $x_i$'s,
+    \item $\mathsf{FV}(e) \subseteq \{x_1, \ldots, x_n\}$.
+    \end{itemize}
+  \item \pause Then we may set $M \mathrel{{:}{=}} \lam{x_1 : A_1} \cdots \lam{x_n : A_n} e$.
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Dirty details}
+
+  \begin{itemize}
+  \item Top level must complain if not all meta-variables are solved. Or does it?
+  \item What about local definitions?
+  \item A meta-variable need not be closed, as it may refer to previously declared and defined constants.
+  \item We get ugly answers with $\beta$-redexes:
+\small
+\begin{fauxttlisting}
+# infer λ (A : Type) (a : A) ⇒ (λ (x : ?H) ⇒ x) a
+λ (A : Type) ⇒ λ (a : A) ⇒
+  (λ (x : (λ (A1 : Type) ⇒ λ (a1 : A1) ⇒ A1) A a) ⇒ x) a
+     : Π (A : Type), Π (a : A), (λ (A1 : Type) ⇒ λ (a1 : A1) ⇒ A1) A a
+\end{fauxttlisting}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Improvements}
+
+  \begin{itemize}
+  \item Solve more equations.
+  \item Normalize away the ugly $\beta$-redexes in solutions.
+  \item Refine meta-variables to product types when necessary:
+\begin{fauxttlisting}
+# infer λ (A : Type) (a : A) (f : ?H) ⇒ f (f a)
+Typechecking error at line 1, characters 38-45:
+this expression should be a function but has type ?H A a
+\end{fauxttlisting}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Where to go from here?}
+
+  Learn from the masters:
+  %
+  \begin{itemize}
+  \item \href{https://andraskovacs.github.io}{András Kovács}: \url{https://github.com/AndrasKovacs/elaboration-zoo}
+  \end{itemize}
+\end{frame}
+
+\end{document}

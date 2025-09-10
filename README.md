@@ -34,6 +34,7 @@ We will look at a rudimentary implementation with holes that fills them in using
 
 Material:
 
+* **[Slides without speaker notes](slides/PL-for-PA-lecture-3-handout.pdf)**
 * **Implementation:** [`holey-fauxtt`](./holey-fauxtt)
 
 ## Lecture 4: Variables as computational effects
