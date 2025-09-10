@@ -1,5 +1,5 @@
 (** Are the given terms equal at the given type? *)
-val equal_tm_at : TT.tm -> TT.tm -> TT.ty -> bool Context.m
+val equal_tm_at : TT.tm -> TT.tm -> TT.ty -> bool
 
 (** Are the given types equal? *)
-val equal_ty : TT.ty -> TT.ty -> bool Context.m
+val equal_ty : TT.ty -> TT.ty -> bool

@@ -20,29 +20,6 @@ type t =
   ; vars : (TT.tm option * TT.ty) VarMap.t
   }
 
-type 'a m = 'a
-
-module Monad =
-struct
-  let ( let* ) : 'a 'b . 'a m -> ('a -> 'b m) -> 'b m =
-    fun c1 c2 -> c2 c1
-
-  let ( >>= ) = ( let* )
-
-  let return : 'a . 'a -> 'a m =
-    fun v -> v
-
-  (* Monadic conjunction *)
-  let ( &&& ) c1 c2 =
-    let* b = c1 in
-    if b then c2 else return false
-
-  (* Monadic disjunction *)
-  let ( ||| ) c1 c2 =
-    let* b = c1 in
-    if b then return true else c2
-end
-
 type _ Effect.t +=
     | LookupVar : TT.var -> (TT.tm option * TT.ty) Effect.t
     | LookupIdent : string -> TT.var option Effect.t
@@ -82,14 +59,14 @@ let lookup_var v =
 let lookup_meta v =
   perform (LookupMeta v)
 
-let with_var v ?def t (c : unit -> 'a m) =
+let with_var v ?def t (c : unit -> 'a) =
   try
     c ()
   with
   | effect (LookupVar w), k when Bindlib.eq_vars v w ->
      continue k (def, t)
 
-let with_ident x ?def t (c : TT.var -> 'a m) =
+let with_ident x ?def t (c : TT.var -> 'a) =
   let v = TT.fresh_var x in
   try
     c v
@@ -99,12 +76,10 @@ let with_ident x ?def t (c : TT.var -> 'a m) =
   | effect (LookupIdent y), k when String.equal x y ->
      continue k (Some v)
 
-let with_ident_ x ?def ty_ (c : TT.var -> 'a m) =
+let with_ident_ x ?def ty_ (c : TT.var -> 'a) =
   let ty = TT.unbox ty_ in
   let def = Option.map TT.unbox def in
   with_ident x ?def ty c
-
-let run c = c
 
 (* let define v e ctx = *)
 (*   match VarMap.find v ctx.metas with *)

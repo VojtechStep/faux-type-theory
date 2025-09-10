@@ -1,14 +1,12 @@
 (** Equality and normalization. *)
 
-open Context.Monad
-
 (** Unify expressions [e1] and [e2] at type [ty]? *)
 let rec unify_tm_at e1 e2 ty =
   (* short-circuit *)
-  return (e1 == e2) |||
+  (e1 == e2) ||
   begin
     (* The type directed phase *)
-    let* (Norm.Ty ty') = Norm.norm_ty ty in
+    let (Norm.Ty ty') = Norm.norm_ty ty in
     match  ty' with
 
     | Norm.Prod (t, u) ->
@@ -30,31 +28,31 @@ let rec unify_tm_at e1 e2 ty =
   end
 
 (** Structurally unify weak head-normal forms of terms [e1] and [e2]. *)
-and unify_tm e1 e2 : bool Context.m =
-  let* e1' = Norm.norm_tm e1 in
-  let* e2' = Norm.norm_tm e2 in
+and unify_tm e1 e2 : bool =
+  let e1' = Norm.norm_tm e1 in
+  let e2' = Norm.norm_tm e2 in
   match e1', e2' with
 
   | Norm.Type, Norm.Type ->
-     return true
+     true
 
   | Norm.Prod (t1, u1), Norm.Prod (t2, u2)  ->
-    unify_ty t1 t2 &&&
+    unify_ty t1 t2 &&
     begin
       let (x, u1, u2) = Bindlib.unbind2 u1 u2 in
       Context.with_var x t1 (fun () -> unify_ty u1 u2)
     end
 
   | Norm.Spine (Var x1, es1), Norm.Spine (Var x2, es2) when Bindlib.eq_vars x1 x2 ->
-     let* _, t = Context.lookup_var x1 in
+     let _, t = Context.lookup_var x1 in
      unify_spine t es1 es2
 
   | Norm.Spine (Meta x1, es1), Norm.Spine (Meta x2, es2) ->
      if Bindlib.eq_vars x1 x2 then
-       let* _, t = Context.lookup_meta x1 in
+       let _, t = Context.lookup_meta x1 in
        unify_spine t es1 es2
      else
-       (unify_meta x1 es1 e2) ||| (unify_meta x2 es2 e1)
+       (unify_meta x1 es1 e2) || (unify_meta x2 es2 e1)
 
   | Norm.Spine (Meta x1, es1), Norm.(Type | Prod _ | Spine (Var _, _)) ->
      unify_meta x1 es1 e2
@@ -68,7 +66,7 @@ and unify_tm e1 e2 : bool Context.m =
     assert false
 
   | Norm.(Type | Prod _ | Spine _), Norm.(Type | Prod _ | Spine _) ->
-    return false
+    false
 
 and unify_ty (TT.Ty ty1) (TT.Ty ty2) =
   unify_tm_at ty1 ty2 TT.(Ty Type)
@@ -77,17 +75,17 @@ and unify_spine t es1 es2 =
   let rec fold t es1 es2 =
     match es1, es2 with
 
-    | ([], _::_) | (_::_, []) -> return false
+    | ([], _::_) | (_::_, []) -> false
 
-    | [], [] -> return true
+    | [], [] -> true
 
     | e1 :: es1, e2 :: es2 ->
-       Norm.as_prod t >>= function
-       | None -> return false
+       match Norm.as_prod t with
+       | None -> false
        | Some (t, u) ->
           begin
-            unify_tm_at e1 e2 t >>= function
-            | false -> return false
+            match unify_tm_at e1 e2 t with
+            | false -> false
             | true -> fold (Bindlib.subst u e1) es1 es2
           end
   in
