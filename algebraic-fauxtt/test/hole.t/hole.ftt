@@ -1,0 +1,6 @@
+axiom A : Type
+axiom a : A
+infer (λ (x : ?X) ⇒ x) a
+infer λ (B : Type) (b : B) ⇒ (λ (x : ?X) ⇒ x) b
+infer let B := A in λ (b : B) ⇒ (λ (x : ?X) ⇒ x) b
+infer λ (B : Type) (f : B → B) (x : ?X) ⇒ f x

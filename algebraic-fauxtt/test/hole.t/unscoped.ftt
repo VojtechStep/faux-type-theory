@@ -1,0 +1,1 @@
+infer λ (x : ?X) (B : Type) (f : B → B) ⇒ f x

@@ -1,0 +1,6 @@
+(executable
+  (name "fauxtt")
+  (public_name "fauxtt")
+  (modules fauxtt)
+  (promote (until-clean) (into ..))
+  (libraries parsing core unix))

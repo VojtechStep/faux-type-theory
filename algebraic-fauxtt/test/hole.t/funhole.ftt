@@ -1,0 +1,5 @@
+axiom A : Type
+axiom a : A
+axiom i : A → A
+
+infer λ (f : ?X) ⇒ i (f a)

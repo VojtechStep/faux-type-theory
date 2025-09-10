@@ -1,0 +1,31 @@
+(* Every bit of syntax should appear in this file. *)
+
+infer Type
+
+eval Type
+
+def A := Type
+
+axiom B : A
+
+(* Functions *)
+
+infer fun (A : Type) => A
+
+infer fun (A B C : Type) => A
+
+infer fun (A B C : Type) (x y : B) => x
+
+infer λ (A : Type) ⇒ A
+
+infer λ (A B C : Type) ⇒ A
+
+infer (λ x y z ⇒ y) : B → B → B → B
+
+infer λ (A B C : Type) (x y : B) ⇒ x
+
+(* Let statement *)
+
+def id := fun (A : Type) (x : A) => x
+
+infer λ (S : Type) (c : S) (T : S → Type) (u : T c) ⇒ let x := id S c in (u : T (id S x))

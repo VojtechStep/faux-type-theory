@@ -1,0 +1,29 @@
+(lang dune 3.6)
+(name "faux-type-theory")
+(version 1.2)
+(using menhir 2.0)
+(cram enable)
+
+(authors "Andrej Bauer <Andrej.Bauer@andrej.com>")
+(maintainers "Andrej Bauer <Andrej.Bauer@andrej.com>")
+(source (github andrejbauer/faux-type-theory))
+(license "MIT")
+
+(generate_opam_files false)
+
+(package
+ (name faux-type-theory)
+ (synopsis "A minimalistic implementation of faux type implemented with algebraic effects")
+ (description
+   "This project shows how to implement a minimalist type theory,
+    which nevertheless could serve as a basis for a serious interpretation."
+ )
+
+ (depends
+   (ocaml (>= 5.0.0))
+   (dune :build)
+   (menhir :build)
+   (menhirLib :build)
+   (sedlex :build)
+   (bindlib (and (>= 6.0) :build))
+   (odoc :with-doc)))
