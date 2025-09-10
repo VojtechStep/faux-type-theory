@@ -4,9 +4,9 @@ type t
 (** The initial global typing context. *)
 val initial : t
 
-(** Assign a value to a meta-variable. It is the caller's responsbility to assign a value of correct type. It is error
-    to assign a value to an already defined meta. *)
-(* val define : TT.var -> TT.tm -> unit m *)
+(** Assign a value to a meta-variable. It is the caller's responsbility to assign a value of correct type.
+    It is an error to assign a value to an already defined meta. *)
+val set_meta_ : TT.var -> TT.tm_ -> bool
 
 (** Extend the context with a top-level definition and return it *)
 val top_extend : string -> ?def:TT.tm -> TT.ty -> unit
@@ -27,7 +27,9 @@ val lookup_ident : string -> TT.var option
     created variable. It is the callers responsibility that the result be valid in
     the original context. *)
 
-val with_context : t -> (unit -> 'a) -> 'a
+val handle_context : (unit -> 'a) -> 'a
+
+val handle_metas : (unit -> unit) -> unit
 
 val with_ident : string -> ?def:TT.tm -> TT.ty -> (TT.var -> 'a) -> 'a
 
@@ -38,5 +40,3 @@ val with_var : TT.var -> ?def:TT.tm -> TT.ty -> (unit -> 'a) -> 'a
 val with_meta : string -> TT.ty -> (TT.tm -> 'a) -> 'a
 
 val with_meta_ : string -> TT.ty_ -> (TT.tm_ -> 'a) -> 'a
-
-val close_tm_ : TT.tm_ -> TT.tm_ option

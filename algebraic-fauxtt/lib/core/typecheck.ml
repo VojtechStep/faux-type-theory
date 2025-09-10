@@ -40,7 +40,7 @@ let print_error ?(penv=Bindlib.empty_ctxt) err ppf =
      Format.fprintf ppf "cannot infer the type of %s" x
 
   | CannotInferHole x ->
-    Format.fprintf ppf "unresolved hole ?%s" x
+    Format.fprintf ppf "cannot infer the type of ?%s" x
 
 (** [infer_ e] infers the type [ty] of expression [e]. It returns
     the processed boxed expression [e] and its boxed type [ty]. *)
@@ -223,42 +223,55 @@ and toplevel' ~quiet : _ -> unit = function
      topfile ~quiet file
 
   | Syntax.TopDefinition (x, None, e) ->
-     let (e, ty) = infer e in
-     let e = resolve_tm e in
-     let ty = resolve_ty ty in
-     Context.top_extend x ~def:e ty ;
-     if not quiet then Format.printf "%s is defined.@." x
+     Context.handle_metas
+       (fun () ->
+         let (e, ty) = infer e in
+         let e = resolve_tm e in
+         let ty = resolve_ty ty in
+         Context.top_extend x ~def:e ty ;
+         if not quiet then Format.printf "%s is defined.@." x
+       )
 
   | Syntax.TopDefinition (x, Some ty, e) ->
-     let ty = check_ty ty in
-     let e = check e ty in
-     let ty = resolve_ty ty in
-     let e = resolve_tm e in
-     Context.top_extend x ~def:e ty ;
-     if not quiet then Format.printf "%s is defined.@." x
+     Context.handle_metas
+       (fun () ->
+         let ty = check_ty ty in
+         let e = check e ty in
+         let ty = resolve_ty ty in
+         let e = resolve_tm e in
+         Context.top_extend x ~def:e ty ;
+         if not quiet then Format.printf "%s is defined.@." x
+       )
 
   | Syntax.TopInfer e ->
-     let (e, ty) = infer e in
-     let e = resolve_tm e in
-     let ty = resolve_ty ty in
-     Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
-       (Print.tm e)
-       (Print.ty ty)
+     Context.handle_metas
+       (fun () ->
+         let (e, ty) = infer e in
+         let e = resolve_tm e in
+         let ty = resolve_ty ty in
+         Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
+           (Print.tm e)
+           (Print.ty ty))
 
   | Syntax.TopEval e ->
-     let (e, ty) = infer e in
-     let e = resolve_tm e in
-     let ty = resolve_ty ty in
-     let e = Norm.eval_tm e in
-     Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
-       (Print.tm e)
-       (Print.ty ty)
+     Context.handle_metas
+       (fun () ->
+         let (e, ty) = infer e in
+         let e = resolve_tm e in
+         let ty = resolve_ty ty in
+         let e = Norm.eval_tm e in
+         Format.printf "@[<hov>%t@]@\n     : @[<hov>%t@]@."
+           (Print.tm e)
+           (Print.ty ty))
 
   | Syntax.TopAxiom (x, ty) ->
-     let ty = check_ty ty in
-     let ty = resolve_ty ty in
-     Context.top_extend x ty ;
-     if not quiet then Format.printf "%s is assumed.@." x
+     Context.handle_metas
+       (fun () ->
+         let ty = check_ty ty in
+         let ty = resolve_ty ty in
+         Context.top_extend x ty ;
+         if not quiet then Format.printf "%s is assumed.@." x
+       )
 
 and topfile ~quiet file =
   let rec fold = function

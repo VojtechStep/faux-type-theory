@@ -24,8 +24,9 @@ type _ Effect.t +=
     | LookupVar : TT.var -> (TT.tm option * TT.ty) Effect.t
     | LookupIdent : string -> TT.var option Effect.t
     | LookupMeta : TT.var -> (TT.tm option * TT.ty) Effect.t
+    | FreshMeta_ : string * TT.ty_ -> TT.tm_ Effect.t
+    | SetMeta_ : TT.var * TT.tm_ -> bool Effect.t
     | TopExtend : (string * TT.tm option * TT.ty) -> unit Effect.t
-    (* | Define : TT.var * TT.tm -> bool Effect.t *)
 
 (** The initial, empty typing context. *)
 let initial =
@@ -40,15 +41,8 @@ let _extend_var x v def ty ctx =
   ; vars = VarMap.add v (def, ty) ctx.vars
   }
 
-(* let _extend_meta v ty ctx = *)
-(*   { ctx with metas = VarMap.add v (None, ty) ctx.metas } *)
-
 let top_extend x ?def ty =
   perform (TopExtend (x, def, ty))
-
-(* let extend x ?def ty ctx = *)
-(*   let v = TT.fresh_var x in *)
-(*   _extend_var (Some x) v def ty ctx, v *)
 
 let lookup_ident x =
   perform (LookupIdent x)
@@ -59,72 +53,67 @@ let lookup_var v =
 let lookup_meta v =
   perform (LookupMeta v)
 
-let with_var v ?def t (c : unit -> 'a) =
-  try
-    c ()
-  with
-  | effect (LookupVar w), k when Bindlib.eq_vars v w ->
-     continue k (def, t)
-
-let with_ident x ?def t (c : TT.var -> 'a) =
-  let v = TT.fresh_var x in
+let with_ident_var x v ?def t c =
   try
     c v
   with
   | effect (LookupVar w), k when Bindlib.eq_vars v w ->
      continue k (def, t)
+
   | effect (LookupIdent y), k when String.equal x y ->
      continue k (Some v)
+
+  | effect (FreshMeta_ (x, u_)), k ->
+     let t_ = TT.lift_ty t in
+     let u_ = TT.(ty_ (prod_ t_ (bind_var v u_))) in
+     let e_ = perform (FreshMeta_ (x, u_)) in
+     continue k TT.(apply_ e_ (var_ v))
+
+  | effect (SetMeta_ (mv, e_)), k ->
+     if not (Bindlib.occur v e_) then
+       begin
+         let b = perform (SetMeta_ (mv, e_)) in
+         continue k b
+       end
+     else
+       begin
+         match def with
+         | None -> continue k false
+         | Some e' ->
+            let e'_ = TT.lift_tm e' in
+            let t_ = TT.lift_ty t in
+            let b = perform (SetMeta_ (mv, TT.(let_ e'_ t_ (bind_var v e_)))) in
+            continue k b
+       end
+
+let with_ident x ?def t (c : TT.var -> 'a) =
+  let v = TT.fresh_var x in
+  with_ident_var x v ?def t c
+
+let with_var v ?def t (c : unit -> 'a) =
+  let x = Util.Name.anonymous () in
+  with_ident_var x v ?def t (fun _ -> c ())
 
 let with_ident_ x ?def ty_ (c : TT.var -> 'a) =
   let ty = TT.unbox ty_ in
   let def = Option.map TT.unbox def in
   with_ident x ?def ty c
 
-(* let define v e ctx = *)
-(*   match VarMap.find v ctx.metas with *)
+let set_meta_ v e_ =
+  perform (SetMeta_ (v, e_))
 
-(*   | Some _, _ -> *)
-(*     (\* We need proper error reporting. *\) *)
-(*     assert false *)
+let fresh_meta_ x ty_ =
+  perform (FreshMeta_ (x, ty_))
 
-(*   | None, ty -> *)
-(*      let ctx = { ctx with metas = VarMap.add v (Some e, ty) ctx.metas } in *)
-(*      ctx, () *)
+let with_meta_ x ty_ c =
+  let e_ = fresh_meta_ x ty_ in
+  c e_
 
-let with_meta_ _x _t_ _c =
-  failwith "with_meta_ not implemented"
-(* let with_meta_ x t_ c ctx = *)
-(*   let mv = TT.fresh_var x in *)
-(*   let rec fold t_ = function *)
-(*     | [] -> TT.meta_ mv, t_ *)
-(*     | v :: vs -> *)
-(*        begin match VarMap.find v ctx.vars with *)
-(*        | Some _, _ -> *)
-(*           (\* let e_ = TT.(lift_tm (Bindlib.subst (unbox (bind_var v e_)) e')) in *\) *)
-(*           (\* let t_ = TT.(lift_ty (Bindlib.subst (unbox (bind_var v t_)) e')) in *\) *)
-(*           fold t_ vs *)
-(*        | None, u -> *)
-(*           let u_ = TT.lift_ty u in *)
-(*           let t_ = TT.(ty_ (prod_ u_ (bind_var v t_))) in *)
-(*           let e_, t_ = fold t_ vs in *)
-(*           TT.(apply_ e_ (var_ v)), t_ *)
-(*        end *)
-(*   in *)
-(*   let e_, t_ = fold t_ ctx.locals in *)
-(*   let t = TT.unbox t_ in *)
-(*   let ctx = { ctx with metas = VarMap.add mv (None, t) ctx.metas } in *)
-(*   c e_ ctx *)
+let with_meta x ty c =
+  let ty_ = TT.lift_ty ty in
+  with_meta_ x ty_ (fun e_ -> c (TT.unbox e_))
 
-let with_meta _x _ty _c =
-  failwith "with_meta not implemented"
-(* let with_meta x ty c = *)
-(*   let ty_ = TT.lift_ty ty in *)
-(*   with_meta_ x ty_ (fun e_ -> c (TT.unbox e_)) *)
-
-let close_tm_ _e_ =
-  failwith "close_tm_ not implemented"
-(* let close_tm_ e_ ctx = *)
+(* let close_tm_ e_ = *)
 (*   let rec fold : TT.var list -> TT.tm_ option = function *)
 (*     | [] -> Some e_ *)
 (*     | v :: vs -> *)
@@ -150,8 +139,8 @@ let close_tm_ _e_ =
 (*   in *)
 (*   ctx, fold (List.rev ctx.locals) *)
 
-let with_context ctx c =
-  let ctx = ref ctx in
+let handle_context c =
+  let ctx = ref initial in
   try
     c ()
   with
@@ -165,3 +154,40 @@ let with_context ctx c =
       let v = TT.fresh_var x in
       ctx := { idents = IdentMap.add x v !ctx.idents ; vars = VarMap.add v (def, ty) !ctx.vars } ;
       continue k ()
+
+exception UnresolvedMeta of TT.var
+
+let handle_metas c =
+  let metas = ref (VarMap.empty : (TT.tm option * TT.ty) VarMap.t) in
+  try
+    let r = c () in
+    VarMap.iter (fun mv -> function
+        | Some _, _ -> ()
+        | None, _ -> raise (UnresolvedMeta mv))
+    !metas ;
+    r
+  with
+
+    | effect (FreshMeta_ (x, ty_)), k ->
+       let mv = TT.fresh_var x in
+       let ty = TT.unbox ty_ in
+       metas := VarMap.add mv (None, ty) !metas ;
+       continue k (TT.meta_ mv)
+
+    | effect (LookupMeta v), k ->
+       continue k (VarMap.find v !metas)
+
+    | effect (SetMeta_ (v, e_)), k ->
+       begin match VarMap.find v !metas with
+
+       | None, ty ->
+          let e = TT.unbox e_ in
+          metas := VarMap.add v (Some e, ty) !metas ;
+          continue k true
+
+       | Some _, _ -> assert false
+
+       end
+
+    | UnresolvedMeta mv ->
+       Util.Print.error "unresolved hole %s@" (Bindlib.name_of mv)

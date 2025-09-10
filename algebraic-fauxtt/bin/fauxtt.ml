@@ -87,7 +87,7 @@ let _main =
   Format.set_margin !Config.columns ;
   Format.set_ellipsis_text "..." ;
 
-  Core.Context.with_context Core.Toplevel.initial
+  Core.Context.handle_context
     (fun () ->
       try
         List.iter (fun (fn, quiet) -> Core.Toplevel.load_file ~quiet fn) !files ;

@@ -8,8 +8,10 @@
        : Π (B : Type), Π (b : B), (λ (B1 : Type) ⇒ λ (b1 : B1) ⇒ B1) B
            b
   let B := A in
-  (λ (b : B) ⇒ (λ (x : (let B1 := A in (λ (b1 : B1) ⇒ B1)) b) ⇒ x) b)
-       : Π (b : A), (let B := A in (λ (b1 : B) ⇒ B)) b
+  (λ (b : B) ⇒
+     (λ (x : (let B1 := A in (λ (A : Type) ⇒ λ (b1 : A) ⇒ B1)) B b) ⇒
+        x) b)
+       : Π (b : A), (let B := A in (λ (A : Type) ⇒ λ (b1 : A) ⇒ B)) A b
   λ (B : Type) ⇒ λ (f : Π (_1 : B), B) ⇒ λ
   (x : (λ (B1 : Type) ⇒ λ (f1 : Π (_1 : B1), B1) ⇒ B1) B f) ⇒ f x
        : Π (B : Type), Π (f : Π (_1 : B), B),

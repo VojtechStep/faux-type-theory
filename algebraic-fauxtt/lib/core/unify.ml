@@ -91,39 +91,30 @@ and unify_spine t es1 es2 =
   in
   fold t es1 es2
 
-and unify_meta _mv _es _e' =
-  failwith "unify_meta not implemented"
-  (* let rec abstract t ys = function *)
-  (*   | [] -> return @@ Some (TT.lift_tm e') *)
-  (*   | e :: es -> *)
-  (*     begin *)
-  (*       Norm.as_prod t >>= function *)
-  (*         | None -> assert false *)
-  (*         | Some (u, t) -> *)
-  (*           Norm.as_var e >>= function *)
-  (*           | None -> return None *)
-  (*           | Some y -> *)
-  (*             if List.exists (Bindlib.eq_vars y) ys then *)
-  (*               return None *)
-  (*             else begin *)
-  (*               abstract (Bindlib.subst t (TT.Var y)) (y :: ys) es >>= function *)
-  (*               | None -> return None *)
-  (*               | Some e' -> *)
-  (*                 let e' = TT.lambda_ (TT.lift_ty u) (Bindlib.bind_var y e') in *)
-  (*                 return (Some e') *)
-  (*             end *)
-
-  (*     end *)
-  (* in *)
-  (* let* _, t = Context.lookup_meta mv in *)
-  (* abstract t [] es >>= function *)
-  (* | None -> return false *)
-  (* | Some e_ -> *)
-  (*    begin *)
-  (*      Context.close_tm_ e_ >>= function *)
-  (*      | None -> return false *)
-  (*      | Some e_ -> *)
-  (*         let e = TT.unbox e_ in *)
-  (*         let* _ = Context.define mv e in *)
-  (*         return true *)
-  (*    end *)
+and unify_meta mv es e' =
+  let rec abstract t ys = function
+    | [] -> Some (TT.lift_tm e')
+    | e :: es ->
+      begin
+        match Norm.as_prod t with
+          | None -> assert false
+          | Some (u, t) ->
+            match Norm.as_var e with
+            | None -> None
+            | Some y ->
+              if List.exists (Bindlib.eq_vars y) ys then
+                None
+              else begin
+                begin match abstract (Bindlib.subst t (TT.Var y)) (y :: ys) es with
+                | None -> None
+                | Some e' ->
+                  let e' = TT.lambda_ (TT.lift_ty u) (Bindlib.bind_var y e') in
+                  Some e'
+                end
+                end
+      end
+  in
+  let _, t = Context.lookup_meta mv in
+  match abstract t [] es with
+  | None -> false
+  | Some e_ -> Context.set_meta_ mv e_
