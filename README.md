@@ -28,4 +28,12 @@ Material:
 
 ## Lecture 3: Holes and unification
 
+Holes are parts of a term that the user has not provided. They can be filled in by a number of mechanisms: unification,
+type class resolution, interaction with the user, automated search, etc. In type theory, they appear as meta-variabales.
+We will look at a rudimentary implementation with holes that fills them in using unification.
+
+Material:
+
+* **Implementation:** [`holey-fauxtt`](./holey-fauxtt)
+
 ## Lecture 4: Variables as computational effects
