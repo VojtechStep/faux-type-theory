@@ -63,28 +63,21 @@ let with_ident_var x v ?def t c =
   | effect (LookupIdent y), k when String.equal x y ->
      continue k (Some v)
 
-  | effect (FreshMeta_ (x, u_)), k ->
+  | effect (FreshMeta_ (x, u_)), k when (def = None) ->
      let t_ = TT.lift_ty t in
      let u_ = TT.(ty_ (prod_ t_ (bind_var v u_))) in
      let e_ = perform (FreshMeta_ (x, u_)) in
      continue k TT.(apply_ e_ (var_ v))
 
-  | effect (SetMeta_ (mv, e_)), k ->
-     if not (Bindlib.occur v e_) then
-       begin
-         let b = perform (SetMeta_ (mv, e_)) in
-         continue k b
-       end
-     else
-       begin
-         match def with
-         | None -> continue k false
-         | Some e' ->
-            let e'_ = TT.lift_tm e' in
-            let t_ = TT.lift_ty t in
-            let b = perform (SetMeta_ (mv, TT.(let_ e'_ t_ (bind_var v e_)))) in
-            continue k b
-       end
+  | effect (SetMeta_ (mv, e_)), k when Bindlib.occur v e_ ->
+     begin match def with
+     | None -> continue k false
+     | Some e' ->
+        let e'_ = TT.lift_tm e' in
+        let t_ = TT.lift_ty t in
+        let b = perform (SetMeta_ (mv, TT.(let_ e'_ t_ (bind_var v e_)))) in
+        continue k b
+     end
 
 let with_ident x ?def t (c : TT.var -> 'a) =
   let v = TT.fresh_var x in
@@ -112,32 +105,6 @@ let with_meta_ x ty_ c =
 let with_meta x ty c =
   let ty_ = TT.lift_ty ty in
   with_meta_ x ty_ (fun e_ -> c (TT.unbox e_))
-
-(* let close_tm_ e_ = *)
-(*   let rec fold : TT.var list -> TT.tm_ option = function *)
-(*     | [] -> Some e_ *)
-(*     | v :: vs -> *)
-(*        begin match VarMap.find v ctx.vars with *)
-(*        | Some e', t -> *)
-(*           if Bindlib.occur v e_ then *)
-(*             begin match fold vs with *)
-(*             | None -> None *)
-(*             | Some e_ -> *)
-(*                let e'_ = TT.lift_tm e' in *)
-(*                let t_ = TT.lift_ty t in *)
-(*                Some TT.(let_ e'_ t_ (bind_var v e_)) *)
-(*             end *)
-(*           else *)
-(*             fold vs *)
-(*        | None, _ -> *)
-(*           (\* Check that the variable does not appear in e_ *\) *)
-(*           if Bindlib.occur v e_ then *)
-(*             None *)
-(*           else *)
-(*             fold vs *)
-(*        end *)
-(*   in *)
-(*   ctx, fold (List.rev ctx.locals) *)
 
 let handle_context c =
   let ctx = ref initial in
