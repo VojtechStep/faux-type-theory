@@ -20,22 +20,6 @@ let options = Arg.align [
      Arg.Set_int Config.columns,
      " Set the maximum number of columns of pretty printing");
 
-    ("--wrapper",
-     Arg.String (fun str -> Config.wrapper := [str]),
-     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
-
-    ("--no-wrapper",
-     Arg.Unit (fun () -> Config.wrapper := []),
-     " Do not use a command-line wrapper");
-
-    ("--no-prelude",
-     Arg.Unit (fun () -> Config.prelude_file := Config.PreludeNone),
-     " Do not load the prelude.tt file");
-
-    ("--prelude",
-     Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
-     "<file> Specify the prelude file to load initially");
-
     ("--ascii",
      Arg.Set Config.ascii,
      " Use ASCII characters only");
@@ -97,38 +81,8 @@ let _main =
     (fun str -> add_file false str ; Config.interactive_shell := false)
     usage ;
 
-  (* Attempt to wrap yourself with a line-editing wrapper. *)
-  if !Config.interactive_shell then
-    begin match !Config.wrapper with
-      | [] -> ()
-      | _::_ as lst ->
-        let n = Array.length Sys.argv + 2 in
-        let args = Array.make n "" in
-        Array.blit Sys.argv 0 args 1 (n - 2) ;
-        args.(n - 1) <- "--no-wrapper" ;
-        List.iter
-          (fun wrapper ->
-             try
-               args.(0) <- wrapper ;
-               Unix.execvp wrapper args
-             with Unix.Unix_error _ -> ())
-          lst
-    end ;
-
   (* Files were accumulated in the wrong order, so we reverse them *)
   files := List.rev !files ;
-
-  (* Should we load the prelude file? *)
-  begin
-    match !Config.prelude_file with
-    | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> add_file true f
-    | Config.PreludeDefault ->
-      (* look for prelude next to the executable and don't whine if it is not there *)
-       let d = Filename.dirname Sys.argv.(0) in
-       let f = Filename.concat d "prelude.tt" in
-       if Sys.file_exists f then add_file true f
-  end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
   Format.set_max_boxes !Config.max_boxes ;
